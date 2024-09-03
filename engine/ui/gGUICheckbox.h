@@ -28,21 +28,26 @@ public:
 	gColor* getBgColor();
 	gColor* getTickColor();
 
-	void update();
-	void draw();
+	void update() override;
+	void draw() override;
 
-	void mousePressed(int x, int y, int button);
-	void mouseReleased(int x, int y, int button);
+	void mousePressed(int x, int y, int button) override;
+	void mouseReleased(int x, int y, int button) override;
 
-	friend class gGUIToolbar;
+	void setDisabled(bool isDisabled);
+
+	int calculateContentHeight() override;
 
 protected:
+	friend class gGUIToolbar;
+
 	bool ischecked;
 
 	int buttonw, buttonh;
 	int titlew, titleh;
 
 	gColor tickcolor, titlecolor;
+	bool isdisabled;
 };
 
 #endif /* UI_GGUICHECKBOX_H_ */

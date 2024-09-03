@@ -22,26 +22,31 @@
 class gGUIDropdownList: public gGUIContainer {
 public:
 	gGUITreelist list;
-	virtual void onGUIEvent(int guiObjectId, int eventType, int sourceEventType, std::string value1 = "", std::string value2 = "");
+	virtual void onGUIEvent(int guiObjectId, int eventType, int sourceEventType, std::string value1 = "", std::string value2 = "") override;
 	gGUIDropdownList();
 	virtual ~gGUIDropdownList();
-	void set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h);
-	void draw();
-	void setParentFrame(gGUIFrame *frame);
-	void mousePressed(int x, int y, int button);
-	void mouseReleased(int x, int y, int button);
-	void mouseScrolled(int x, int y);
+	void set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h) override;
+	void draw() override;
+	void setParentFrame(gGUIForm* form);
+	void setParentForm(gGUIForm* form);
+	void mousePressed(int x, int y, int button) override;
+	void mouseReleased(int x, int y, int button) override;
+	void mouseScrolled(int x, int y) override;
 	void setfirstTitle();
 	void setSelectedTitle();
 	void addElement(gGUITreelist::Element* element);
 	void addElement(gGUITreelist::Element* element, gGUITreelist::Element* parentelement);
 	void clearTitle();
+	void clear();
+	void setDisabled(bool isDisabled);
 
 	std::string& getSelectedTitle();
 
-	friend class gGUIToolbar;
+	int calculateContentHeight() override;
 
 private:
+	friend class gGUIToolbar;
+
 	gGUISizer listsizer;
 	gGUIButton button;
 	gGUIImageButton ibutton;
@@ -52,8 +57,9 @@ private:
 	int listx, listy, listw;
 	bool listopened, selectedline, listexpanded, pressedonlist, buttonpressed, ispressed;
 	bool lopened;
-	gGUIFrame *frame;
+	gGUIForm* frame;
 	std::string fTitle;
+	bool isdisabled;
 };
 
 #endif /* UI_GGUIDROPDOWNLIST_H_ */

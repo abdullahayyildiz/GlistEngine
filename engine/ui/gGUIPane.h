@@ -13,6 +13,8 @@
 #include "gColor.h"
 #include "gGUIButton.h"
 
+class gGUINavigation;
+
 
 class gGUIPane: public gGUIContainer {
 public:
@@ -20,6 +22,13 @@ public:
 	virtual ~gGUIPane();
 
 	virtual void set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h);
+
+	void setNavigation(gGUINavigation* nav);
+	void setNavigationOrder(int orderNo);
+	int getNavigationOrder();
+
+	void setSubTitle(std::string subTitle);
+	void show();
 
 	virtual void draw();
 
@@ -36,15 +45,21 @@ public:
 	gGUIButton getNextButton();
 
 private:
+	gGUINavigation* navigation;
+	int navorder;
 	gGUISizer panesizer;
 	gFont titlefont;
 	gColor titlecolor;
 	int titlefontsize;
+	std::string subtitle;
+	bool issubtitleset;
 	bool navbuttonsenabled;
 	gGUISizer buttonsizer;
 	gGUIPane *previouspane, *nextpane;
 	gGUIButton previousbutton, nextbutton;
 	bool previousbuttonenabled, nextbuttonenabled;
+	int titlex, titley;
+	int subtitlex, subtitley;
 };
 
 #endif /* UI_GGUIPANE_H_ */

@@ -135,8 +135,8 @@ bool gGLFWWindow::getShouldClose() {
 
 void gGLFWWindow::update() {
 	// End window drawing
-	glfwSwapBuffers(window);
-	glfwPollEvents();
+	G_CHECK_GL(glfwSwapBuffers(window));
+	G_CHECK_GL(glfwPollEvents());
 //    std::cout << "width:" << width << ", height:" << height << std::endl;
 }
 
@@ -191,6 +191,27 @@ void gGLFWWindow::setWindowSizeLimits(int minWidth, int minHeight, int maxWidth,
 		if(maxHeight == 0) maxHeight = GLFW_DONT_CARE;
 		glfwSetWindowSizeLimits(window, minWidth, minHeight, maxWidth, maxHeight);
 	}
+}
+
+void gGLFWWindow::setIcon(std::string pngFullpath) {
+	GLFWimage images[1];
+	std::string iconpath = pngFullpath;
+	images[0].pixels = stbi_load(iconpath.c_str(), &images[0].width, &images[0].height, 0, 4); //rgba channels
+	glfwSetWindowIcon(window, 1, images);
+	stbi_image_free(images[0].pixels);
+}
+
+void gGLFWWindow::setIcon(unsigned char* imageData, int w, int h) {
+	GLFWimage images[1];
+	images[0].width = w;
+	images[0].height = h;
+	images[0].pixels = imageData;
+	glfwSetWindowIcon(window, 1, images);
+}
+
+void gGLFWWindow::setTitle(const std::string& windowTitle) {
+	title = windowTitle;
+	glfwSetWindowTitle(window, windowTitle.c_str());
 }
 
 bool gGLFWWindow::isJoystickPresent(int joystickId) {

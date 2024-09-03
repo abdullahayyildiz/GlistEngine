@@ -78,6 +78,13 @@ public:
 	void addData(std::string lineData);
 
 	/*
+	 * Changes the data of the given line no.
+	 *
+	 * @param lineData is the string value that stored in the data list.
+	 */
+	void setData(int lineNo, std::string lineData);
+
+	/*
 	 *  Renamed title of the given line number with the given text.
 	 *
 	 *  @lineNo is the line number that changed the title.
@@ -128,6 +135,12 @@ public:
 	 * @lineNo is the number of line that the title's given.
 	 */
 	std::string getData(int lineNo);
+
+	/*
+	 * Returns all the titles in a vector.
+	 *
+	 */
+	std::vector<std::string> getData();
 
 	/*
 	 * Returns the size of data list.
@@ -232,20 +245,23 @@ public:
 	 */
 	int getVisibleLineNumber();
 
+	int getTotalHeight();
+
 private:
 	int listboxh;
-	int lineh, linenum;
-	int minlinenum, minboxh;
-	int maxlinenum;
+	int lineh;
+	int visibilelinenum, minboxh;
 	std::vector<std::string> data;
 	std::deque<gTexture*> icons;
-	float datady;
+	float textoffset;
 	int firstlineno, flno, fldy;
 	int selectedno;
 	bool mousepressedonlist;
 	bool isicon;
 	gColor chosencolor, iconcolor;
-	int iconw;
+
+private:
+	void updateTotalHeight();
 };
 
 #endif /* UI_GGUILISTBOX_H_ */

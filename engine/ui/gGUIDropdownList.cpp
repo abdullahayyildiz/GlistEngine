@@ -11,18 +11,18 @@
 
 gGUIDropdownList::gGUIDropdownList() {
 	buttonw = 24;
-	listsizer.setSize(1, 2);
-	float columnproportions[2] = {0.8f, 0.2f};
-	listsizer.setColumnProportions(columnproportions);
-	listsizer.enableBorders(false);
 	setSizer(&listsizer);
+	guisizer->setSize(1, 2);
+	float columnproportions[2] = {0.8f, 0.2f};
+	guisizer->setColumnProportions(columnproportions);
+	guisizer->enableBorders(false);
 	button.setButtonColor(pressedbuttoncolor);
 	button.setSize(buttonw, buttonw);
 	button.setTitle("");
 	textbox.setEditable(false);
 	textbox.enableVerticalMargin(false);
-	listsizer.setControl(0, 0, &textbox);
-	listsizer.setControl(0, 1, &button);
+	guisizer->setControl(0, 0, &textbox);
+	guisizer->setControl(0, 1, &button);
 	listx = textbox.left;
 	listy = textbox.top + textbox.height;
 	listw = textbox.width + button.width + 1;
@@ -38,6 +38,7 @@ gGUIDropdownList::gGUIDropdownList() {
 	rootelement = nullptr;
 	list.setTitleOn(false);
 	ispressed = false;
+	isdisabled = false;
 
 
 	actionmanager.addAction(&button, G_GUIEVENT_BUTTONRELEASED, this, G_GUIEVENT_TREELISTOPENEDONDROPDOWNLIST);
@@ -52,12 +53,6 @@ gGUIDropdownList::~gGUIDropdownList() {
 
 void gGUIDropdownList::set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h) {
     totalh = h;
-    left = x;
-    top = y;
-    right = x + w;
-    bottom = y + h;
-    width = w;
-    height = h;
     gGUIScrollable::set(root, topParentGUIObject, parentGUIObject, parentSlotLineNo, parentSlotColumnNo, x, y, w, h);
     gGUIScrollable::setDimensions(w, h);
     guisizer->set(root, topParentGUIObject, parentGUIObject, parentSlotLineNo, parentSlotColumnNo, x, y + topbarh, w, h - topbarh);
@@ -65,6 +60,7 @@ void gGUIDropdownList::set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, g
 	textboxw = textbox.width;
 	textboxh = textbox.getTextboxh();
 	buttonw = textboxh;
+	button.setSize(buttonw, buttonw);
 	listw = textboxw + buttonw + 5;
 	listx = textbox.left;
 	listy = textbox.top + textboxh - list.getTitleTop() + 5;
@@ -83,7 +79,10 @@ void gGUIDropdownList::onGUIEvent(int guiObjectId, int eventType, int sourceEven
 		ispressed = true;
 	}
 	if(sourceEventType == G_GUIEVENT_TREELISTSELECTED) {
-		selectedline = listopened;
+		selectedline = true;
+		setSelectedTitle();
+		listopened = false;
+		frame->addTreelist(nullptr, listx, listy, listw);
 	}
 	if(sourceEventType == G_GUIEVENT_TREELISTEXPANDED) {
 		listexpanded = true;
@@ -101,7 +100,8 @@ void gGUIDropdownList::draw() {
 //	}
 
 	gColor* oldcolor = renderer->getColor();
-	renderer->setColor(buttonfontcolor);
+	if(isdisabled) renderer->setColor(disabledbuttonfontcolor);
+	else renderer->setColor(buttonfontcolor);
 	gDrawTriangle((button.left + (buttonw/2)) - 6.5,
 	                (top) + ((buttonw/2) - 3),
 	                (button.left + (buttonw/2)) + 6.5,
@@ -112,9 +112,12 @@ void gGUIDropdownList::draw() {
 	renderer->setColor(oldcolor);
 }
 
-void gGUIDropdownList::setParentFrame(gGUIFrame *frame) {
-	this->frame = frame;
-//	(*frame).addTreelist(&list, listx, listy, listw);
+void gGUIDropdownList::setParentFrame(gGUIForm* form) {
+	setParentForm(form);
+}
+
+void gGUIDropdownList::setParentForm(gGUIForm* form) {
+	this->frame = form;
 }
 
 
@@ -128,6 +131,7 @@ void gGUIDropdownList::addElement(gGUITreelist::Element* element, gGUITreelist::
 }
 
 void gGUIDropdownList::mousePressed(int x, int y, int button) {
+	if(isdisabled) return;
 	gGUIContainer::mousePressed(x, y, button);
 	if(listopened)
 		list.mousePressed(x, y, button);
@@ -135,6 +139,7 @@ void gGUIDropdownList::mousePressed(int x, int y, int button) {
 }
 
 void gGUIDropdownList::mouseReleased(int x, int y, int button) {
+	if(isdisabled) return;
     lopened = listopened;
     gGUIContainer::mouseReleased(x, y, button);
     if(listopened) {
@@ -159,6 +164,7 @@ void gGUIDropdownList::mouseReleased(int x, int y, int button) {
 }
 
 void gGUIDropdownList::mouseScrolled(int x, int y) {
+	if(isdisabled) return;
 	list.mouseScrolled(x, y);
 }
 
@@ -172,24 +178,23 @@ void gGUIDropdownList::setfirstTitle() {
 }
 
 void gGUIDropdownList::setSelectedTitle() {
-
 	std::string title = "";
 	bool arrow = false;
 	if(selectedline) {
 		title = rootelement->parentlist->allsubtitles[list.getSelectedLineNumber()];
 		if(rootelement->isicon) {
 			int i = 0;
-			while(i < title.size() && arrow == false) {
+			while(i < title.size() && !arrow) {
 				if(title[i] == ' ') {
 					i++;
+				} else {
+					arrow = true;
 				}
-				else arrow = true;
 			}
 			title = title.substr(i, title.size() - i);
-		}
-		else {
+		} else {
 			int i = 0;
-			while(i < title.size() && arrow == false) {
+			while(i < title.size() && !arrow) {
 				if(title[i] == '>' || title[i] == '-') {
 					arrow = true;
 					title = title.substr(i + 2, title.size() - i);
@@ -209,4 +214,18 @@ std::string& gGUIDropdownList::getSelectedTitle() {
 
 void gGUIDropdownList::clearTitle() {
 	textbox.setText("");
+}
+
+void gGUIDropdownList::clear() {
+	list.clear();
+	clearTitle();
+}
+
+void gGUIDropdownList::setDisabled(bool isDisabled) {
+	isdisabled = isDisabled;
+	textbox.setDisabled(isDisabled);
+}
+
+int gGUIDropdownList::calculateContentHeight() {
+	return textbox.calculateContentHeight();
 }

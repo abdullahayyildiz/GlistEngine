@@ -20,6 +20,7 @@
 #include "gGUIFrame.h"
 #include "gGUISizer.h"
 #include "gGUIDialogue.h"
+#include <deque>
 
 class gBaseApp;
 
@@ -56,12 +57,15 @@ public:
 	void setTheme(int guiTheme);
 	int getTheme();
 
-	gFont* getFont(int fontNum, int fontType = FONTTYPE_REGULAR);
+	gFont* getFont(int fontNo, int fontType = FONTTYPE_REGULAR);
 
 	void setCurrentFrame(gGUIFrame* currentFrame);
 	void setCurrentFrame(gGUIFrame* currentFrame, int width, int height);
 	void setupDialogue(gGUIDialogue* dialogue);
 	gGUIFrame* getCurrentFrame();
+
+	bool showDialogue(gGUIDialogue* dialogue);
+	bool hideDialogue(gGUIDialogue* dialogue);
 
 	void keyPressed(int key);
 	void keyReleased(int key);
@@ -91,23 +95,27 @@ private:
 	gColor themebackgroundcolor[themenum];
 	gColor thememiddlegroundcolor[themenum];
 	gColor themeforegroundcolor[themenum];
-	gColor themetextbackgroundcolor[themenum];
-	gColor themenavigationbackgroundcolor[themenum];
-	gColor themefontcolor[themenum];
-	gColor themenavigationfontcolor[themenum];
 	gColor themebuttoncolor[themenum];
 	gColor themepressedbuttoncolor[themenum];
 	gColor themedisabledbuttoncolor[themenum];
 	gColor themebuttonfontcolor[themenum];
 	gColor themepressedbuttonfontcolor[themenum];
 	gColor themedisabledbuttonfontcolor[themenum];
+	gColor themetextbackgroundcolor[themenum];
+	gColor themenavigationbackgroundcolor[themenum];
+	gColor themefontcolor[themenum];
+	gColor themenavigationfontcolor[themenum];
+	gColor themetoolbarbuttoncolor[themenum];
+	gColor themetoolbarbottomlinecolor[themenum];
+
 	gFont themefonts[fontnum][fonttypenum];
 	void loadThemes();
 	void resetTheme(int guiTheme);
 
 	gGUISizer defdialoguesizer;
 
-	std::vector<gGUIDialogue*> dialogues;
+	std::deque<gGUIDialogue*> dialogues;
+	std::deque<gGUIDialogue*> dialoguesshown;
 	gGUIDialogue* selecteddialogue;
 
 };

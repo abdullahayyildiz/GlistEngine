@@ -32,11 +32,18 @@ using fstream = ghc::filesystem::fstream;
 
 class gFile : public gObject {
 public:
-	enum Mode{
+	enum Mode {
 		FILEMODE_READONLY,
 		FILEMODE_WRITEONLY,
 		FILEMODE_READWRITE,
 		FILEMODE_APPEND
+	};
+
+	enum CopyOptions {
+		NONE,
+		SKIP_EXISTING,
+		OVERWRITE_EXISTING,
+		RECURSIVE
 	};
 
 	gFile();
@@ -52,6 +59,7 @@ public:
 
 	void write(const std::string& content);
 	void write(std::vector<char> newBytes);
+	void write(const char* bytes, size_t length);
 
 	std::vector<char> getBytes();
 	std::string getText();
@@ -80,6 +88,21 @@ public:
 	static std::string getDirectory(const fs::path& path);
 	static std::string addComplementarySlashIfNeeded(const fs::path& filePath);
 
+	//copyOptions can be one of;
+	//gFile::CopyOptions::NONE, gFile::CopyOptions::SKIP_EXISTING, gFile::CopyOptions::OVERWRITE_EXISTING
+	static void copy(const std::string& fromFullPath, const std::string& toFullPath, int copyOption = CopyOptions::NONE);
+	static bool copyFile(const std::string& fromFullPath, const std::string& toFullPath, int copyOption = CopyOptions::NONE);
+	static void copySymlink(const std::string& existingSymlinkFullPath, const std::string& newSymlinkFullPath);
+	static bool createDirectory(const std::string& fullPath);
+	static void createDirectorySymlink(const std::string& toFullPath, const std::string& symlinkFullPath);
+	static void createSymlink(const std::string& toFullPath, const std::string& symlinkFullPath);
+	static bool isEmpty(const std::string& fullPath);
+	static bool isEquivalent(const std::string& fullPath1, const std::string& fullPath2);
+	static bool isSymlink(const std::string& fullPath);
+	static bool remove(const std::string& fullPath);
+	static bool removeAll(const std::string& fullPath);
+	static void rename(const std::string& fromFullPath, const std::string& toFullPath);
+
 private:
 	fs::path path;
 	int mode;
@@ -92,6 +115,8 @@ private:
 	bool open();
 	bool openStream(int fileMode, bool isBinary);
 	void readFile();
+
+	static fs::copy_options copyOptions[4];
 };
 
 #endif /* UTILS_GFILE_H_ */

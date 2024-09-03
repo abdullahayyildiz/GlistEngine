@@ -99,6 +99,7 @@ gGUITextbox::gGUITextbox() {
 	textalignmentamount = 5;
 	textcolor = fontcolor;
 	colorset = false;
+	isdisabled = false;
 	setTextAlignment(textalignment, boxw, initx);
 	
 	widthexceeded = false;
@@ -115,9 +116,7 @@ void gGUITextbox::set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseG
 	rightlimit = right;
 	toplimit = top;
 	bottomlimit = bottom;
-	if(!root) return;
-	manager = root->getAppManager()->getGUIManager();
-	textfont = manager->getFont(gGUIManager::FONT_FREESANS);
+	textfont = appmanager->getGUIManager()->getFont(gGUIManager::FONT_FREESANS);
 }
 
 void gGUITextbox::setText(const std::string& text) {
@@ -338,7 +337,7 @@ void gGUITextbox::draw() {
 	gColor oldcolor = *renderer->getColor();
 	if(isbackgroundenabled) {
 		renderer->setColor(foregroundcolor);
-		gDrawRectangle(left - firstx, top + hdiff - firsty, width, boxh / 2 + totalh, false);
+		gDrawRectangle(left - firstx, top + hdiff - firsty, width,  totalh, false);
 	}
 	renderer->setColor(textbackgroundcolor);
 	gDrawRectangle(left - firstx, top + hdiff - firsty, width,  totalh, true);
@@ -368,7 +367,8 @@ void gGUITextbox::draw() {
 		}
 	}
 	if(!colorset) textcolor = fontcolor;
-	renderer->setColor(textcolor);
+	if(isdisabled) renderer->setColor(disabledbuttonfontcolor);
+	else renderer->setColor(textcolor);
 	if(ispassword) {
 		int doty = top + lineheight + linetopmargin;
 		int dotlen = 3 * dotradius;
@@ -398,6 +398,7 @@ void gGUITextbox::draw() {
 
 void gGUITextbox::keyPressed(int key) {
 //	gLogi("Textbox") << "keyPressed:" << key;
+	if(isdisabled) return;
 	if(key == G_KEY_C && ctrlpressed) ctrlcpressed = true;
 	else if(key == G_KEY_V && ctrlpressed) ctrlvpressed = true;
 	else if(key == G_KEY_X && ctrlpressed) ctrlxpressed = true;
@@ -468,6 +469,7 @@ void gGUITextbox::keyPressed(int key) {
 }
 
 void gGUITextbox::keyReleased(int key) {
+	if(isdisabled) return;
 	int pressedkey = KEY_NONE;
 	switch(key) {
 	case G_KEY_BACKSPACE:
@@ -528,6 +530,7 @@ void gGUITextbox::keyReleased(int key) {
 }
 
 void gGUITextbox::handleKeys() {
+	if(isdisabled) return;
 	if(keypresstime >= 0) {
 		keypresstime++;
 		if(keypresstime >= keypresstimelimit2) keypresstime = keypresstimelimit1;
@@ -560,6 +563,7 @@ void gGUITextbox::handleKeys() {
 }
 
 void gGUITextbox::pressKey() {
+	if(isdisabled) return;
 	if((keystate & KEY_BACKSPACE) && (cursorposchar > 0 || (selectionmode && (selectionposchar1 > 0 || selectionposchar2 > 0)))) { // BACKSPACE
 		pushToStack();
 		if(selectionmode && selectionposchar1 != selectionposchar2) {
@@ -1255,6 +1259,7 @@ void gGUITextbox::pressKey() {
 void gGUITextbox::charPressed(unsigned int codepoint) {
 //	gLogi("Textbox") << "charPressed:" << codepoint;
 //	gLogi("Textbox") << "cp:" << gCodepointToStr(codepoint);
+	if(isdisabled) return;
 	pushToStack();
 	if(editmode) {
 		if(isnumeric && (codepoint < 48 || codepoint > 57) && codepoint != 44 && codepoint != 46) return;
@@ -1299,6 +1304,7 @@ void gGUITextbox::charPressed(unsigned int codepoint) {
 			widthexceeded = true;
 		newtext = oldtext + addedtext;
 		if(cursorposchar < letterlength.size()) newtext += text.substr(cursorposutf, text.length() - cursorposutf);
+		std::string oldtextfull = text;
 		text = newtext;
 		int diffutf = text.length() - previouslengthutf;
 		if(previouslengthutf == 0 || cursorposchar == letterlength.size()) letterlength.push_back(diffutf);
@@ -1339,8 +1345,7 @@ void gGUITextbox::charPressed(unsigned int codepoint) {
 				cursorposx = 0;
 			}
 		}
-
-//		gLogi("Textbox") << "cp cx:" << cursorposx;
+		if(newtext != oldtextfull) root->getCurrentCanvas()->onGuiEvent(id, G_GUIEVENT_TEXTBOXENTRY, newtext);
 	}
 }
 
@@ -1390,6 +1395,7 @@ int gGUITextbox::findFirstSpace(int lineend) {
 }
 
 void gGUITextbox::mousePressed(int x, int y, int button) {
+	if(isdisabled) return;
 	if(!iseditable) return;
 
 	if(x >= left - (firstx * 2) && x < right - (firstx * 2) && y >= top + hdiff - (firsty * 2) && y < top + totalh + hdiff - (firsty * 2) && button == 0) {
@@ -1435,16 +1441,19 @@ void gGUITextbox::mousePressed(int x, int y, int button) {
 }
 
 void gGUITextbox::mouseReleased(int x, int y, int button) {
+	if(isdisabled) return;
 	if(!iseditable) return;
 
 	if(x >= left && x < right && y >= top + hdiff && y < top + totalh + hdiff && button == 0) {
 		return;
 	}
-	if(!isdragging) editmode = false;
+	selectionmode = false;
+	editmode = false;
 	isdragging = false;
 }
 
 void gGUITextbox::mouseDragged(int x, int y, int button) {
+	if(isdisabled) return;
 	if(editmode && x >= left && x < right && y >= top && y < top + totalh && button == 2) {
 		if(!selectionmode) startSelection();
 
@@ -1469,7 +1478,9 @@ std::vector<int> gGUITextbox::clickTextbox(int x, int y) {
 	if(!editmode) cursorshowcounter = 0;
 	editmode = true;
 
-	if(!ismultiline) return calculateClickPosition(x, y);
+	if(!ismultiline) {
+		return calculateClickPosition(x, y);
+	}
 	return calculateClickPositionMultiline(x, y);
 }
 
@@ -1488,7 +1499,7 @@ std::vector<int> gGUITextbox::calculateClickPosition(int x, int y) {
 				posutf += letterlength[i];
 			}
 			posx = textfont->getStringWidth(text.substr(firstutf, posutf - firstutf));
-			if(posx >= clickxdiff - alignmentamount) {
+			if(posx >= clickxdiff) {
 				poschar -= 1;
 				posutf -= letterlength[i];
 				posx = textfont->getStringWidth(text.substr(firstutf, posutf - firstutf));
@@ -1849,4 +1860,16 @@ void gGUITextbox::setCursorPosX(int cursorPosX, int length) {
 	cursorposx = cursorPosX;
 	cursorposchar = text.size() - (text.size() - length);
 	cursorposutf = length;
+}
+
+void gGUITextbox::setDisabled(bool isDisabled) {
+	isdisabled = isDisabled;
+}
+
+void gGUITextbox::setEditMode(bool editMode) {
+	editmode = editMode;
+}
+
+int gGUITextbox::calculateContentHeight() {
+	return totalh;
 }

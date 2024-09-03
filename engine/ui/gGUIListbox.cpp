@@ -6,28 +6,24 @@
  */
 
 #include "gGUIListbox.h"
+
+#include <algorithm>
 #include "gBaseApp.h"
-#include "gBaseCanvas.h"
 
 
 gGUIListbox::gGUIListbox() {
 	lineh = 2 * font->getSize() + 2;
-	minlinenum = 4;
-	linenum = 0;
-	totalh = linenum * lineh;
-	minboxh = minlinenum * lineh;
-	listboxh = minboxh;
-	maxlinenum = listboxh / lineh;
 	firstlineno = 0;
 	flno = firstlineno;
 	selectedno = 0;
 	mousepressedonlist = false;
-	datady = (lineh - font->getStringHeight("ae")) / 2 + 1;
+	textoffset = (lineh - font->getStringHeight("ae")) / 2 + 1;
 	fldy = 0;
 	chosencolor = gColor(1.0f, 0.5f, 0.0f);
 	iconcolor = textbackgroundcolor;
 	isicon = false;
-	iconw = lineh / 2;
+	updateTotalHeight();
+	setVisibleLineNumber(5);
 }
 
 gGUIListbox::~gGUIListbox() {
@@ -35,9 +31,9 @@ gGUIListbox::~gGUIListbox() {
 }
 
 void gGUIListbox::set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h) {
-	totalh = h;
 	gGUIScrollable::set(root, topParentGUIObject, parentGUIObject, parentSlotLineNo, parentSlotColumnNo, x, y, w, h);
-	gGUIScrollable::setDimensions(width, listboxh);
+	gGUIScrollable::setDimensions(width, listboxh + textoffset);
+	updateTotalHeight();
 }
 
 void gGUIListbox::drawContent() {
@@ -46,28 +42,27 @@ void gGUIListbox::drawContent() {
 	renderer->setColor(textbackgroundcolor);
 	gDrawRectangle(0, 0, boxw, boxh, true);
 
-	flno = firsty / lineh;
-	fldy = firsty % lineh;
+	flno = verticalscroll / lineh;
+	fldy = verticalscroll % lineh;
 
-	if(selectedno >= flno && selectedno < flno + linenum) {
-		if(isfocused) renderer->setColor(chosencolor);
-		else renderer->setColor(middlegroundcolor);
+	int linenum = data.size();
+	if(selectedno >= flno && selectedno <= flno + linenum) {
+		if(isfocused) {
+			renderer->setColor(chosencolor);
+		} else {
+			renderer->setColor(middlegroundcolor);
+		}
 		gDrawRectangle(0, -fldy + (selectedno - flno) * lineh, boxw, lineh, true);
 	}
 
-	for(int i = 0; i < linenum; i++) {
-		if(flno + i < data.size()) {
-			if(isicon) {
-				renderer->setColor(iconcolor);
-				icons[i + flno]->draw(2 , - fldy + (i * lineh) - datady / 2 + lineh / 2, iconw, iconw);
-				renderer->setColor(fontcolor);
-				font->drawText(data[flno + i], 12, -fldy + lineh + (i * lineh) - datady);
-			}
-			else {
-				renderer->setColor(fontcolor);
-				font->drawText(data[flno + i], 2, -fldy + lineh + (i * lineh) - datady);
-			}
-		}
+	int startindex = flno;
+	int endindex = flno + visibilelinenum + 1;
+	endindex = std::min(endindex, linenum);
+	startindex = std::max(startindex, 0);
+
+	for(int i = startindex; i < endindex; i++) {
+		renderer->setColor(fontcolor);
+		font->drawText(data[i], 2, (i * lineh) + lineh - textoffset - verticalscroll);
 	}
 
 	renderer->setColor(oldcolor);
@@ -75,34 +70,36 @@ void gGUIListbox::drawContent() {
 
 void gGUIListbox::addData(std::string lineData) {
 	data.push_back(lineData);
-	linenum = data.size();
-	if(linenum > maxlinenum) linenum = maxlinenum;
-	totalh = data.size() * lineh;
-	if(totalh < height) totalh = height;
+	updateTotalHeight();
+}
+
+void gGUIListbox::setData(int lineNo, std::string lineData) {
+	if(lineNo < 0 || lineNo >= data.size()) return;
+	data[lineNo] = lineData;
 }
 
 void gGUIListbox::insertData(int lineNo, std::string lineData) {
 	data.insert(data.begin() + lineNo, lineData);
-	linenum = data.size();
-	if(linenum > maxlinenum) linenum = maxlinenum;
-	totalh = data.size() * lineh;
-	if(totalh < height) totalh = height;
+	updateTotalHeight();
 }
 
 void gGUIListbox::removeData(int lineNo) {
-	if(lineNo>=0 && lineNo < data.size()) data.erase(data.begin() + lineNo);
-	if(lineNo>=0 && lineNo < icons.size()) icons.erase(icons.begin() + lineNo);
-	linenum = data.size();
-	if(linenum > maxlinenum) linenum = maxlinenum;
-	totalh = data.size() * lineh;
-	if(totalh < height) totalh = height;
+	if(lineNo>=0 && lineNo < data.size()) {
+		data.erase(data.begin() + lineNo);
+	}
+	if(lineNo>=0 && lineNo < icons.size()) {
+		icons.erase(icons.begin() + lineNo);
+	}
 	if(selectedno > data.size() - 1) {
 		selectedno = data.size() - 1;
 		flno -= 1;
 		if(flno < 0) flno = 0;
-		firsty -= 3 * scrolldiff;
-		if(firsty < 0) firsty = 0;
+		verticalscroll -= 3 * scrollamount;
+		if(verticalscroll < 0) {
+			verticalscroll = 0;
+		}
 	}
+	updateTotalHeight();
 }
 
 void gGUIListbox::removeSelected() {
@@ -112,15 +109,14 @@ void gGUIListbox::removeSelected() {
 void gGUIListbox::clear() {
 	data.clear();
 	icons.clear();
-	linenum = 0;
-	totalh = height;
-	firsty = 0;
+	verticalscroll = 0;
+	updateTotalHeight();
 }
 
 
 void gGUIListbox::mousePressed(int x, int y, int button) {
 	gGUIScrollable::mousePressed(x, y, button);
-	if(x >= left && x < left + vsbx && y >= top + titledy && y < top + titledy + hsby) {
+	if(x >= left && x < left + boxw && y >= top + titleheight && y < top + titleheight + boxh) {
 		mousepressedonlist = true;
 	}
 }
@@ -128,12 +124,11 @@ void gGUIListbox::mousePressed(int x, int y, int button) {
 void gGUIListbox::mouseReleased(int x, int y, int button) {
 	gGUIScrollable::mouseReleased(x, y, button);
 	if(mousepressedonlist) mousepressedonlist = false;
-	if(x >= left && x < left + vsbx && y >= top + titledy && y < top + titledy + hsby) {
-		int newselectedno = (y - top - titledy + firsty) / lineh;
+	if(x >= left && x < left + boxw && y >= top + titleheight && y < top + titleheight + boxh) {
+		int newselectedno = (y - top - titleheight + verticalscroll) / lineh;
 		if(newselectedno < data.size() + 1) selectedno = newselectedno;
 		isfocused = true;
 		root->getCurrentCanvas()->onGuiEvent(id, G_GUIEVENT_LISTBOXSELECTED, gToStr(selectedno));
-
 	}
 }
 
@@ -141,6 +136,7 @@ void gGUIListbox::setSelected(int lineNo) {
 	if(lineNo < 0 || lineNo > data.size() - 1) return;
 
 	selectedno = lineNo;
+	root->getCurrentCanvas()->onGuiEvent(id, G_GUIEVENT_LISTBOXSELECTED, gToStr(selectedno));
 }
 
 void gGUIListbox::setChosenColor(float r, float g, float b) {
@@ -148,17 +144,19 @@ void gGUIListbox::setChosenColor(float r, float g, float b) {
 }
 
 void gGUIListbox::setVisibleLineNumber(int linenumber) {
-	if(linenumber > 0) {
-		minlinenum = linenumber;
-		minboxh = minlinenum * lineh;
-		listboxh = minboxh;
-		maxlinenum = listboxh / lineh;
+	if(linenumber <= 0) {
+		return;
 	}
+	visibilelinenum = linenumber;
+	minboxh = visibilelinenum * lineh;
+	listboxh = minboxh + textoffset;
 }
 
 void gGUIListbox::setIconType(bool isicon) {
 	this->isicon = isicon;
-	if(this->isicon) setIcons();
+	if(isicon) {
+		setIcons();
+	}
 }
 
 void gGUIListbox::setIcons() {
@@ -173,8 +171,11 @@ void gGUIListbox::setIcon(gImage* icon, std::string title) {
 	if(isicon) {
 		int index = 0;
 		for(auto i : data) {
-			if(title != i) index++;
-			else break;
+			if(title != i) {
+				index++;
+			} else {
+				break;
+			}
 		}
 		if(index <= data.size()) {
 			icons.erase(icons.begin() + index);
@@ -210,6 +211,10 @@ std::string gGUIListbox::getData(int lineNo) {
 	return data[lineNo];
 }
 
+std::vector<std::string> gGUIListbox::getData() {
+	return data;
+}
+
 int gGUIListbox::getDataNum() {
 	return data.size();
 }
@@ -236,5 +241,16 @@ gColor gGUIListbox::getIconsColor() {
 }
 
 int gGUIListbox::getVisibleLineNumber() {
-	return minlinenum;
+	return visibilelinenum;
+}
+
+int gGUIListbox::getTotalHeight() {
+	return totalh;
+}
+
+void gGUIListbox::updateTotalHeight() {
+	totalh = data.size() * lineh;
+	if(totalh < minboxh) {
+		totalh = minboxh;
+	}
 }

@@ -66,6 +66,9 @@ public:
 	virtual void setCursorMode(int cursorMode);
 	virtual void setCursorPos(int x, int y);
 
+	virtual void setIcon(std::string pngFullpath);
+	virtual void setIcon(unsigned char* imageData, int w, int h);
+
 	virtual void setClipboardString(std::string text);
 	virtual std::string getClipboardString();
 
@@ -97,7 +100,7 @@ public:
 	 *
 	 * @param windowTitle The text to be written in the title of the window.
 	 */
-	void setTitle(const std::string& windowTitle);
+	virtual void setTitle(const std::string& windowTitle);
 	void setTitle(std::string&& windowTitle);
 
 	/**

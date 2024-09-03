@@ -26,7 +26,7 @@
 #include <android/asset_manager.h>
 #endif
 #if TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
-#    include "freetype2/freetype/freetype.h"
+#include "freetype2/freetype/freetype.h"
 #endif
 #if defined(WIN32) || defined(LINUX) || TARGET_OS_OSX
 #include FT_FREETYPE_H
@@ -92,6 +92,21 @@ public:
 	 */
 	void drawText(const std::string& text, float x, float y);
 
+
+	/**
+	 * @brief Draws the given text vertically flipped at the specified position.
+	 *
+	 * @see drawText
+	 */
+	void drawTextVerticallyFlipped(const std::string& text, float x, float y);
+
+	/**
+	 * @brief Draws the given text horizontally flipped at the specified location.
+	 *
+	 * @see drawText
+	 */
+	void drawTextHorizontallyFlipped(const std::string& text, float x, float y);
+
 	/**
 	 * Calculates text's width
 	 *
@@ -114,6 +129,13 @@ public:
 	 * @return The height of the given text
 	 */
 	float getStringHeight(const std::string& text);
+
+	/**
+	 * Returns the line's height
+	 *
+	 * @return Line height
+	 */
+	float getLineHeight();
 
 	/**
 	 * Returns the path of the loaded font.

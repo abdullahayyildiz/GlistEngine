@@ -5,15 +5,17 @@
  *      Author: noyan
  */
 
-#include <iosfwd>
-#include <sstream>
-#include <iostream>
-#include <fstream>
-#include <vector>
 #include "gMesh.h"
-#include "gLight.h"
+#include <vector>
 #include <glm/gtx/intersect.hpp>
+#if defined(__i386__) || defined(__x86_64__)
+#include <immintrin.h>
+#elif defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
 
+#include "gLight.h"
+#include "gShader.h"
 
 gMesh::gMesh() {
 	name = "";
@@ -30,8 +32,7 @@ gMesh::gMesh() {
     colorshader = nullptr;
     textureshader = nullptr;
     pbrshader = nullptr;
-	bbminx = 0.0f, bbminy = 0.0f, bbminz = 0.0f;
-	bbmaxx = 0.0f, bbmaxy = 0.0f, bbmaxz = 0.0f;
+	needsboundingboxrecalculation = false;
 }
 
 gMesh::gMesh(std::vector<gVertex> vertices, std::vector<gIndex> indices, std::vector<gTexture*> textures) {
@@ -69,8 +70,11 @@ void gMesh::setVertices(std::vector<gVertex> vertices, std::vector<gIndex> indic
 	this->vertices = vertices;
 	this->indices = indices;
 	vbo.setVertexData(vertices.data(), sizeof(gVertex), vertices.size());
-	if (indices.size() != 0) vbo.setIndexData(indices.data(), indices.size());
-    initialboundingbox = getBoundingBox();
+	if (!indices.empty()) {
+		vbo.setIndexData(indices.data(), indices.size());
+	}
+	recalculateBoundingBox();
+	initialboundingbox = boundingbox;
 //	initialboundingbox.setTransformationMatrix(localtransformationmatrix);
 }
 
@@ -165,6 +169,28 @@ void gMesh::draw() {
 	drawEnd();
 }
 
+void gMesh::processTransformationMatrix() {
+	if (needsboundingboxrecalculation) {
+		gNode::processTransformationMatrix();
+		return;
+	}
+
+	bool positionchanged = (position != prevposition);
+	bool orientationchanged = (orientation != prevorientation);
+	bool scalechanged = (scalevec != prevscalevec);
+	// Recalculate bounding box only if orientation or scale has changed
+	if (orientationchanged || scalechanged) {
+		// todo maybe impelement a way to rotate and scale the bb without fully recalculating?
+		needsboundingboxrecalculation = true;
+	}
+	if (positionchanged && !needsboundingboxrecalculation) {
+		glm::vec3 posdiff = position - prevposition;
+		boundingbox.set(boundingbox.minX() + posdiff.x, boundingbox.minY() + posdiff.y, boundingbox.minZ() + posdiff.z,
+						boundingbox.maxX() + posdiff.x, boundingbox.maxY() + posdiff.y, boundingbox.maxZ() + posdiff.z);
+	}
+	gNode::processTransformationMatrix();
+}
+
 void gMesh::drawStart() {
 	if (isshadowmappingenabled && renderpassno == 0) {
 		renderer->getShadowmapShader()->use();
@@ -172,12 +198,12 @@ void gMesh::drawStart() {
 		return;
 	}
 
-    if (textures.size() == 0 && !material.isPBR()) {
+    if (textures.empty() && !material.isPBR()) {
     	colorshader = renderer->getColorShader();
 		colorshader->use();
 
 	    // Set scene properties
-//	    colorshader->setVec3("viewPos", 0.0f, 0.0f, 0.0f); //bunu shadowmap testi için kapattim
+	    colorshader->setVec3("viewPos", renderer->getCameraPosition());
 	    colorshader->setVec4("renderColor", renderer->getColor()->r, renderer->getColor()->g, renderer->getColor()->b, renderer->getColor()->a);
 
 	    // Set material colors
@@ -212,27 +238,7 @@ void gMesh::drawStart() {
 		    material.bindNormalMap();
 	    }
 
-	    // Set lights
-		if (renderer->isLightingEnabled()) {
-			for (sli = 0; sli < renderer->getSceneLightNum(); sli++) {
-				scenelight = renderer->getSceneLight(sli);
-				colorshader->setInt("lights[" + gToStr(sli) + "].type", scenelight->getType());
-				colorshader->setVec3("lights[" + gToStr(sli) + "].position", scenelight->getPosition());
-				colorshader->setVec3("lights[" + gToStr(sli) + "].direction", scenelight->getDirection());
-				colorshader->setFloat("lights[" + gToStr(sli) + "].cutOff", scenelight->getSpotCutOffAngle());
-				colorshader->setFloat("lights[" + gToStr(sli) + "].outerCutOff", scenelight->getSpotOuterCutOffAngle());
-				colorshader->setVec4("lights[" + gToStr(sli) + "].ambient", scenelight->getAmbientColorRed(), scenelight->getAmbientColorGreen(), scenelight->getAmbientColorBlue(), scenelight->getAmbientColorAlpha());
-				colorshader->setVec4("lights[" + gToStr(sli) + "].diffuse", scenelight->getDiffuseColorRed(), scenelight->getDiffuseColorGreen(), scenelight->getDiffuseColorBlue(), scenelight->getDiffuseColorAlpha());
-				colorshader->setVec4("lights[" + gToStr(sli) + "].specular", scenelight->getSpecularColorRed(), scenelight->getSpecularColorGreen(), scenelight->getSpecularColorBlue(), scenelight->getSpecularColorAlpha());
-				colorshader->setFloat("lights[" + gToStr(sli) + "].constant", scenelight->getAttenuationConstant());
-				colorshader->setFloat("lights[" + gToStr(sli) + "].linear", scenelight->getAttenuationLinear());
-				colorshader->setFloat("lights[" + gToStr(sli) + "].quadratic", scenelight->getAttenuationQuadratic());
-			}
-		} else {
-			colorshader->setInt("lights[0].type", gLight::LIGHTTYPE_AMBIENT);
-			colorshader->setVec4("lights[0].ambient", renderer->getLightingColor()->r, renderer->getLightingColor()->g, renderer->getLightingColor()->b, renderer->getLightingColor()->a);
-		}
-
+		// todo use uniform buffer objects for fog too
 		if(renderer->isFogEnabled()) {
 			colorshader->setBool("fog.enabled", true);
 			colorshader->setVec3("fog.color", renderer->getFogColor().r, renderer->getFogColor().g, renderer->getFogColor().b);
@@ -257,7 +263,7 @@ void gMesh::drawStart() {
 	    else colorshader->setMat4("projection", renderer->getProjectionMatrix());
 		colorshader->setMat4("view", renderer->getViewMatrix());
 		colorshader->setMat4("model", localtransformationmatrix);
-    } else if (textures.size() == 0 && material.isPBR()) {
+    } else if (textures.empty() && material.isPBR()) {
     	pbrshader = renderer->getPbrShader();
     	pbrshader->use();
     	pbrshader->setMat4("projection", renderer->getProjectionMatrix());
@@ -273,15 +279,6 @@ void gMesh::drawStart() {
     	material.bindMetalnessMap();
     	material.bindRoughnessMap();
     	material.bindAOMap();
-	    if (renderer->isLightingEnabled()) {
-    		pbrshader->setInt("lightNum", renderer->getSceneLightNum());
-	    	for (sli = 0; sli < renderer->getSceneLightNum(); sli++) {
-	    		pbrshader->setVec3("lightPositions[" + gToStr(sli) + "]", renderer->getSceneLight(sli)->getPosition());
-	    		pbrshader->setVec3("lightColors[" + gToStr(sli) + "]", glm::vec3(renderer->getSceneLight(sli)->getDiffuseColor()->r, renderer->getSceneLight(sli)->getDiffuseColor()->g, renderer->getSceneLight(sli)->getDiffuseColor()->b));
-	    	}
-	    }
-
-
 	} else {
 		textureshader = renderer->getTextureShader();
         textureshader->use();
@@ -348,28 +345,87 @@ gVbo* gMesh::getVbo() {
 	return &vbo;
 }
 
-gBoundingBox gMesh::getBoundingBox() {
-	for (bbi = 0; bbi< vertices.size(); bbi++) {
-//		bbvpos = vertices[bbi].position;
-		bbvpos = glm::vec3(localtransformationmatrix * glm::vec4(vertices[bbi].position, 1.0));
-
-		if (bbi == 0) {
-			bbminx = bbvpos.x, bbminy = bbvpos.y, bbminz = bbvpos.z;
-			bbmaxx = bbvpos.x, bbmaxy = bbvpos.y, bbmaxz = bbvpos.z;
-			continue;
-		}
-
-		bbminx = std::min(bbminx, bbvpos.x);
-		bbminy = std::min(bbminy, bbvpos.y);
-		bbminz = std::min(bbminz, bbvpos.z);
-		bbmaxx = std::max(bbmaxx, bbvpos.x);
-		bbmaxy = std::max(bbmaxy, bbvpos.y);
-		bbmaxz = std::max(bbmaxz, bbvpos.z);
+const gBoundingBox& gMesh::getBoundingBox() {
+	if (needsboundingboxrecalculation) {
+		recalculateBoundingBox();
 	}
-
-	return gBoundingBox(bbminx, bbminy, bbminz, bbmaxx, bbmaxy, bbmaxz);
+	return boundingbox;
 }
 
+void gMesh::recalculateBoundingBox() {
+	// Ensure the vertex list is not empty
+	if (vertices.empty()) {
+		// Handle empty vertices case appropriately
+		boundingbox = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+		needsboundingboxrecalculation = false;
+		return;
+	}
+
+	// Calculate the local bounding box
+	glm::vec4 pos1 = localtransformationmatrix * glm::vec4(vertices[0].position, 1.0f);
+
+	float minx = pos1.x, miny = pos1.y, minz = pos1.z;
+	float maxx = pos1.x, maxy = pos1.y, maxz = pos1.z;
+
+#if defined(__i386__) || defined(__x86_64__)
+	__m128 minvals = _mm_set_ps(minz, miny, minx, 0);
+	__m128 maxvals = _mm_set_ps(maxz, maxy, maxx, 0);
+
+	for (size_t i = 1; i < vertices.size(); ++i) {
+		glm::vec4 pos = localtransformationmatrix * glm::vec4(vertices[i].position, 1.0f);
+		__m128 current = _mm_set_ps(pos.z, pos.y, pos.x, 0);
+
+		minvals = _mm_min_ps(minvals, current);
+		maxvals = _mm_max_ps(maxvals, current);
+	}
+
+	float minarray[4], maxarray[4];
+	_mm_store_ps(minarray, minvals);
+	_mm_store_ps(maxarray, maxvals);
+
+	minx = minarray[1];
+	miny = minarray[2];
+	minz = minarray[3];
+	maxx = maxarray[1];
+	maxy = maxarray[2];
+	maxz = maxarray[3];
+#elif defined(__ARM_NEON)
+	float32x4_t minvals = {minz, miny, minx, 0};
+	float32x4_t maxvals = {maxz, maxy, maxx, 0};
+
+	for (size_t i = 1; i < vertices.size(); ++i) {
+		glm::vec4 pos = localtransformationmatrix * glm::vec4(vertices[i].position, 1.0f);
+		float32x4_t current = {pos.z, pos.y, pos.x, 0};
+
+		minvals = vminq_f32(minvals, current);
+		maxvals = vmaxq_f32(maxvals, current);
+	}
+	float minarray[4], maxarray[4];
+	vst1q_f32(minarray, minvals);
+	vst1q_f32(maxarray, maxvals);
+
+	minx = minarray[2];
+	miny = minarray[1];
+	minz = minarray[0];
+	maxx = maxarray[2];
+	maxy = maxarray[1];
+	maxz = maxarray[0];
+#else
+	for (size_t i = 1; i < vertices.size(); ++i) {
+		glm::vec4 pos = localtransformationmatrix * glm::vec4(vertices[i].position, 1.0f);
+
+		minx = std::min(pos.x, minx);
+		miny = std::min(pos.y, miny);
+		minz = std::min(pos.z, minz);
+		maxx = std::max(pos.x, maxx);
+		maxy = std::max(pos.y, maxy);
+		maxz = std::max(pos.z, maxz);
+	}
+#endif
+
+	boundingbox = {minx, miny, minz, maxx, maxy, maxz};
+	needsboundingboxrecalculation = false;
+}
 
 const gBoundingBox& gMesh::getInitialBoundingBox() const {
 	return initialboundingbox;

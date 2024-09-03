@@ -16,8 +16,8 @@ gGUIGraph::gGUIGraph() {
 	axisystart = 0;
 	axisxw = 0;
 	axisyh = 0;
-	maxx = -2147483647;
-	maxy = -2147483647;
+	maxx = -2147483647.0f;
+	maxy = -2147483647.0f;
 	minx = 0;
 	miny = 0;
 	largestvaluex = 0;
@@ -289,4 +289,8 @@ void gGUIGraph::updateLabelsY() {
 
 int gGUIGraph::countDigits(int number) {
 	return std::to_string(number).size();
+}
+
+void gGUIGraph::clear() {
+
 }

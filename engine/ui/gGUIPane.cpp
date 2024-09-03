@@ -6,8 +6,12 @@
  */
 
 #include "gGUIPane.h"
+#include "gGUINavigation.h"
+
 
 gGUIPane::gGUIPane() {
+	navigation = nullptr;
+	navorder = -1;
 	setSizer(&panesizer);
 	totalh = 0;
 	title = "Pane";
@@ -15,7 +19,7 @@ gGUIPane::gGUIPane() {
 	titlefont.loadFont("FreeSansBold.ttf", titlefontsize);
 	titlecolor = gColor(128, 128, 128);
 	topbarh = titlefontsize * 4 + font->getSize();
-	panesizer.setSlotPadding(titlefontsize * 2);
+	panesizer.setSlotPadding(titlefontsize * 2, 0);
 	navbuttonsenabled = true;
 	previouspane = nullptr;
 	nextpane = nullptr;
@@ -30,6 +34,12 @@ gGUIPane::gGUIPane() {
 	buttonsizer.setControl(0, 2, &nextbutton);
 	previousbuttonenabled = true;
 	nextbuttonenabled = true;
+	issubtitleset = false;
+	subtitle = "";
+	titlex = 0;
+	titley = 0;
+	subtitlex = 0;
+	subtitley = 0;
 }
 
 gGUIPane::~gGUIPane() {
@@ -39,6 +49,28 @@ void gGUIPane::set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIO
 	totalh = h;
 	gGUIContainer::set(root, topParentGUIObject, parentGUIObject, parentSlotLineNo, parentSlotColumnNo, x, y, w, h);
 	buttonsizer.set(root, topparent, this, 0, 0, left, top + height - 50, width, 50);
+	titlex = left + titlefontsize * 2;
+	titley = top + titlefontsize * 3;
+	subtitlex = titlex;
+	subtitley = titley + 3 * font->getSize();
+}
+
+void gGUIPane::setSubTitle(std::string subTitle) {
+	subtitle = subTitle;
+	issubtitleset = true;
+	if(subtitle == "") issubtitleset = false;
+}
+
+void gGUIPane::setNavigation(gGUINavigation* nav) {
+	navigation = nav;
+}
+
+void gGUIPane::setNavigationOrder(int orderNo) {
+	navorder = orderNo;
+}
+
+int gGUIPane::getNavigationOrder() {
+	return navorder;
 }
 
 void gGUIPane::setPreviousPane(gGUIPane* previousPane) {
@@ -67,14 +99,25 @@ void gGUIPane::enableNextButton(bool isEnabled) {
 	if(nextpane && nextbuttonenabled) nextbutton.setDisabled(false);
 }
 
+void gGUIPane::show() {
+	if(navigation != nullptr) navigation->setSelectedPaneNo(navorder);
+	 ((gGUISizer*)parent)->setControl(0, 1, this);
+}
+
 void gGUIPane::draw() {
 	gColor oldcolor = *renderer->getColor();
 
 	renderer->setColor(255, 255, 255);
 	gDrawRectangle(left, top, width, height, true);
 
-	renderer->setColor(212, 212, 212);
-	titlefont.drawText(title, left + titlefontsize * 2, top + titlefontsize * 3);
+	renderer->setColor(navigationbackgroundcolor);
+//	renderer->setColor(212, 212, 212);
+	titlefont.drawText(title, titlex, titley);
+	if(issubtitleset) {
+		renderer->setColor(40, 80, 120);
+//		renderer->setColor(150, 150, 150);
+		font->drawText(subtitle, subtitlex, subtitley);
+	}
 
 	renderer->setColor(&oldcolor);
 	if(guisizer) guisizer->draw();
@@ -103,6 +146,7 @@ void gGUIPane::mouseReleased(int x, int y, int button) {
 void gGUIPane::onGUIEvent(int guiObjectId, int eventType, int sourceEventType, std::string value1, std::string value2) {
 	gGUIContainer::onGUIEvent(guiObjectId, eventType, sourceEventType, value1, value2);
 	if(eventType == G_GUIEVENT_PANEACTIVE) {
+		if(navigation != nullptr) navigation->setSelectedPaneNo(navorder);
 		 ((gGUISizer*)parent)->setControl(0, 1, this);
 	}
 }

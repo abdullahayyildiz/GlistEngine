@@ -7,20 +7,21 @@
 
 #include "gGUIDialogue.h"
 #include "gGUISizer.h"
+#include "gGUIMenubar.h"
+#include "gGUIStatusBar.h"
+#include "gGUIContextMenu.h"
+#include "gGUITreelist.h"
+#include "gBaseApp.h"
 
 
 gGUIDialogue::gGUIDialogue() {
 	isdialogueshown = false;
 
-	guisizer = nullptr;
-
-	titlebar = nullptr;
-	buttonsbar = nullptr;
-	messagebar = nullptr;
-
-	minimizebutton = nullptr;
-	maximizebutton = nullptr;
-	exitbutton = nullptr;
+	guisizer = new gGUISizer();
+	menubar = nullptr;
+	statusbar = nullptr;
+	contextmenu = nullptr;
+	treelist = nullptr;
 
 	buttontrigger = EVENT_NONE; buttonevent = EVENT_NONE;
 
@@ -31,97 +32,114 @@ gGUIDialogue::gGUIDialogue() {
 	dragposx = 0; dragposy = 0; sizeposx = 0; sizeposy = 0;
 
 	dialoguetype = DIALOGUETYPE_OK;
+	titletype = TITLETYPE_EXITMINMAX;
 
 	resizeposition = RESIZE_NONE;
 
-	initDefTitleBar();
-	initDefButtonsBar();
+	initTitleBar();
+	initButtonsBar();
 	initDefMessageBar();
 }
 
 gGUIDialogue::~gGUIDialogue() {
+	if(guisizer) delete guisizer;
+}
+
+void gGUIDialogue::setSizer(gGUISizer* guiSizer) {
+	if(guisizer) delete guisizer;
+	gGUIForm::setSizer(guiSizer);
 }
 
 void gGUIDialogue::update() {
-	if (guisizer) guisizer->update();
+	if(guisizer) guisizer->update();
+	messagebar.update();
 }
 
 void gGUIDialogue::draw() {
 	gColor oldcolor = *renderer->getColor();
 
-	if (resizeposition == RESIZE_NONE) {
+	if(resizeposition == RESIZE_NONE) {
 		// TITLE BAR BACKGROUND
 		renderer->setColor(textbackgroundcolor);
-		gDrawRectangle(left, top - titlebar->height, width, titlebar->height, true);
+		gDrawRectangle(left, top - titlebar.height, width, titlebar.height, true);
 		// BUTTONS BAR BACKGROUND
 		renderer->setColor(foregroundcolor);
-		gDrawRectangle(left, top, width, height + buttonsbar->height, true);
+		gDrawRectangle(left, top, width, height + buttonsbar.height, true);
 
-		if (guisizer) guisizer->draw();
-		if (titlebar) titlebar->draw();
-		if (buttonsbar) buttonsbar->draw();
-		if (messagebar) messagebar->draw();
+		if(guisizer) guisizer->draw();
+		titlebar.draw();
+		buttonsbar.draw();
+		messagebar.draw();
 	}
 
 	// DIALOGUE BORDERS
 	renderer->setColor(fontcolor);
-	gDrawLine(left, top - titlebar->height, right, top - titlebar->height);
-	gDrawLine(left, bottom + buttonsbar->height, right, bottom + buttonsbar->height);
-	gDrawLine(left, top - titlebar->height, left, bottom + buttonsbar->height);
-	gDrawLine(right, top - titlebar->height, right, bottom + buttonsbar->height);
+	gDrawLine(left, top - titlebar.height, right, top - titlebar.height);
+	gDrawLine(left, bottom + buttonsbar.height, right, bottom + buttonsbar.height);
+	gDrawLine(left, top - titlebar.height, left, bottom + buttonsbar.height);
+	gDrawLine(right, top - titlebar.height, right, bottom + buttonsbar.height);
 
 	renderer->setColor(&oldcolor);
+
+	if(menubar) menubar->draw();
+	if(statusbar) statusbar->draw();
+	if(contextmenu) contextmenu->draw();
+	if(treelist) treelist->draw();
 }
 
-void gGUIDialogue::show() {
-	isdialogueshown = true;
+bool gGUIDialogue::show() {
+	if(isdialogueshown) return false;
+	if(root->getAppManager()->getGUIManager()->showDialogue(this)) isdialogueshown = true;
+	else isdialogueshown = false;
+	return isdialogueshown;
 }
 
-void gGUIDialogue::hide() {
-	isdialogueshown = false;
+bool gGUIDialogue::hide() {
+	if(!isdialogueshown) return true;
+	if(root->getAppManager()->getGUIManager()->hideDialogue(this)) isdialogueshown = false;
+	return !isdialogueshown;
 }
 
 bool gGUIDialogue::isShown() {
 	return isdialogueshown;
 }
 
-void gGUIDialogue::initDefTitleBar() {
-	deftitlebar.setSizer(&deftitlebarsizer);
-	deftitlebarsizer.setSize(1, 5);
+void gGUIDialogue::initTitleBar() {
+	titlebar.setSizer(&titlebarsizer);
+	titlebarsizer.setSize(1, 5);
 
-	deftitlebarbitmap.loadImage("gameicon/icon.png", false);
-	deftitlebarbitmap.width = deftitlebarbitmapw;
-	deftitlebarbitmap.height = deftitlebarbitmapw;
+	titlebarbitmap.loadImage("gameicon/icon.png", false);
+	titlebarbitmap.width = titlebarbitmapw;
+	titlebarbitmap.height = titlebarbitmapw;
 
-	deftitlebartext.setText("Properties for GlistEngine");
+	titlebartext.setText("Properties for GlistEngine");
+	titlebartext.setTextVerticalAlignment(gGUIText::TEXTVERTICALALIGNMENT_TOP);
 
-	deftitlebarminimizebutton.setButtonImageFromIcon(gGUIResources::ICON_MINIMIZEBLACK);
-	deftitlebarminimizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MINIMIZEBLACK);
+	minimizebutton.setButtonImageFromIcon(gGUIResources::ICON_MINIMIZEBLACK);
+	minimizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MINIMIZEBLACK);
 
-	deftitlebarmaximizebutton.setButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
-	deftitlebarmaximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
+	maximizebutton.setButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
+	maximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
 
-	deftitlebarexitbutton.setButtonImageFromIcon(gGUIResources::ICON_EXITBLACK);
-	deftitlebarexitbutton.setPressedButtonImageFromIcon(gGUIResources::ICON_EXITBLACK);
-
-	setMinimizeButton(&deftitlebarminimizebutton);
-	setMaximizeButton(&deftitlebarmaximizebutton);
-	setExitButton(&deftitlebarexitbutton);
+	exitbutton.setButtonImageFromIcon(gGUIResources::ICON_EXITBLACK);
+	exitbutton.setPressedButtonImageFromIcon(gGUIResources::ICON_EXITBLACK);
 }
 
-void gGUIDialogue::initDefButtonsBar() {
+void gGUIDialogue::initButtonsBar() {
 	dialoguetype = DIALOGUETYPE_OK;
-	defbuttonsbar.setSizer(&defbuttonsbarsizer);
+	buttonsbar.setSizer(&buttonsbarsizer);
 
-	defbuttonsbarokbutton.setTitle("OK");
-	defbuttonsbaryesbutton.setTitle("Yes");
-	defbuttonsbarnobutton.setTitle("No");
-	defbuttonsbarcancelbutton.setTitle("Cancel");
+	buttonsbarokbutton.setTitle("OK");
+	buttonsbaryesbutton.setTitle("Yes");
+	buttonsbarnobutton.setTitle("No");
+	buttonsbarcancelbutton.setTitle("Cancel");
 }
 
 void gGUIDialogue::initDefMessageBar() {
-	defmessagebar.setSizer(&defmessagebarsizer);
+	messagebar.setSizer(&defmessagebarsizer);
 	defmessagebarsizer.setSize(1, 4);
+//	defmessagebarsizer.enableBorders(true);
+//	defmessagebarsizer.setForegroundColor(backgroundcolor);
 
 	defmessagetext.setText("This is a placeholder text.");
 	defdialogueicon.setDisabled(true);
@@ -130,151 +148,146 @@ void gGUIDialogue::initDefMessageBar() {
 	defmessagebarrightspace = 15;
 }
 
-void gGUIDialogue::setTitleBar(gGUIContainer* titleBar) {
-	this->titlebar = titleBar;
-	titlebar->width = width;
-	if (titlebar->height == 0) titlebar->height = deftitlebarh;
-	titlebar->set(root, this, this, 0, 0, left, top - titlebar->height, titlebar->width, titlebar->height);
-}
-
 gGUIContainer* gGUIDialogue::getTitleBar() {
-	return titlebar;
-}
-
-void gGUIDialogue::setButtonsBar(gGUIContainer* buttonsBar) {
-	this->buttonsbar = buttonsBar;
-	buttonsbar->width = width;
-	if (buttonsbar->height == 0) buttonsbar->height = defbuttonsbarh;
-	buttonsbar->set(root, this, this, 0, 0, left, top + height, buttonsbar->width, buttonsbar->height);
+	return &titlebar;
 }
 
 gGUIContainer* gGUIDialogue::getButtonsBar() {
-	return buttonsbar;
-}
-
-void gGUIDialogue::setMessageBar(gGUIContainer* messageBar) {
-	this->messagebar = messageBar;
-	messagebar->width = width;
-	messagebar->height = height;
-	messagebar->set(root, this, this, 0, 0, left, top + defmessagebartopspace, messagebar->width - defmessagebarrightspace, messagebar->height - defmessagebartopspace * 2);
+	return &buttonsbar;
 }
 
 gGUIContainer* gGUIDialogue::getMessageBar() {
-	return messagebar;
+	return &messagebar;
 }
 
 void gGUIDialogue::resetTitleBar() {
-	setTitleBar(&deftitlebar);
+	titlebar.width = width;
+	if(titlebar.height == 0) titlebar.height = titlebarh;
+	titlebar.set(root, this, this, 0, 0, left, top - titlebar.height, titlebar.width, titlebar.height);
 
-	float tbbitp = ((float)deftitlebarbitmapw + 15) / (float)deftitlebar.width;
-	float tbbutp = (float)deftitlebarbuttonw / (float)deftitlebar.width;
+	float tbbitp = ((float)titlebarbitmapw + 15) / (float)titlebar.width;
+	float tbbutp = (float)titlebarbuttonw / (float)titlebar.width;
 	float tbtxtp = 1 - (tbbitp + 3 * tbbutp);
-	float tbcolproportions[4] = {tbtxtp, tbbutp, tbbutp, tbbutp};
-	deftitlebarsizer.setColumnProportions(tbcolproportions);
+	// 5th one is for the exit button
+	float tbcolproportions[5] = {tbtxtp, tbbutp, tbbutp, tbbutp, 0};
+	titlebarsizer.setColumnProportions(tbcolproportions);
 
-	deftitlebarbitmap.top += (deftitlebar.height - deftitlebarbitmap.height) / 2;
-	deftitlebarbitmap.left += (deftitlebar.width * tbbitp - deftitlebarbitmap.width) / 2;
+	titlebarbitmap.top += (titlebar.height - titlebarbitmap.height) / 2;
+	titlebarbitmap.left += (titlebar.width * tbbitp - titlebarbitmap.width) / 2;
 
-	deftitlebarsizer.setControl(0, 0, &deftitlebartext);
-	deftitlebartext.height = deftitlebarbitmapw / 1.5f;
-	deftitlebartext.top += (deftitlebar.height - deftitlebartext.height) / 2;
+	titlebarsizer.setControl(0, 0, &titlebartext);
+	titlebartext.height = titlebarbitmapw / 1.5f;
+	titlebartext.top += (titlebar.height - titlebartext.height) / 2;
 
-	deftitlebarsizer.setControl(0, 2, &deftitlebarminimizebutton);
-	deftitlebarminimizebutton.setSize(deftitlebar.height, deftitlebar.height);
-
-	if (ismaximized) {
-		deftitlebarmaximizebutton.setButtonImageFromIcon(gGUIResources::ICON_RESTOREBLACK);
-		deftitlebarmaximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_RESTOREBLACK);
-	}
-	else {
-		deftitlebarmaximizebutton.setButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
-		deftitlebarmaximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
+	if(titletype == TITLETYPE_EXITMINMAX || titletype == TITLETYPE_EXITMIN) {
+		titlebarsizer.setControl(0, 2, &minimizebutton);
+		minimizebutton.setSize(titlebar.height, titlebar.height);
+	} else {
+		titlebarsizer.removeControl(0, 2);
 	}
 
-	deftitlebarsizer.setControl(0, 3, &deftitlebarmaximizebutton);
-	deftitlebarmaximizebutton.setSize(deftitlebar.height, deftitlebar.height);
+	if(ismaximized) {
+		maximizebutton.setButtonImageFromIcon(gGUIResources::ICON_RESTOREBLACK);
+		maximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_RESTOREBLACK);
+	} else {
+		maximizebutton.setButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
+		maximizebutton.setPressedButtonImageFromIcon(gGUIResources::ICON_MAXIMIZEBLACK);
+	}
 
-	deftitlebarsizer.setControl(0, 4, &deftitlebarexitbutton);
-	deftitlebarexitbutton.setSize(deftitlebar.height, deftitlebar.height);
+	if(titletype == TITLETYPE_EXITMINMAX || titletype == TITLETYPE_EXITMAX) {
+		titlebarsizer.setControl(0, 3, &maximizebutton);
+		maximizebutton.setSize(titlebar.height, titlebar.height);
+	} else {
+		titlebarsizer.removeControl(0, 3);
+	}
+
+	titlebarsizer.setControl(0, 4, &exitbutton);
+	exitbutton.setSize(titlebar.height, titlebar.height);
 }
 
 void gGUIDialogue::resetButtonsBar() {
-	setButtonsBar(&defbuttonsbar);
-	if(dialoguetype == DIALOGUETYPE_OK) defbuttonsbarsizer.setSize(1, 2);
-	if(dialoguetype == DIALOGUETYPE_YESNOCANCEL) defbuttonsbarsizer.setSize(1, 4);
-	if(dialoguetype == DIALOGUETYPE_OKCANCEL || dialoguetype == DIALOGUETYPE_YESNO) defbuttonsbarsizer.setSize(1, 3);
+	buttonsbar.width = width;
+	if(buttonsbar.height == 0) buttonsbar.height = buttonsbarh;
+	buttonsbar.set(root, this, this, 0, 0, left, top + height, buttonsbar.width, buttonsbar.height);
+
+	if(dialoguetype == DIALOGUETYPE_OK) buttonsbarsizer.setSize(1, 2);
+	if(dialoguetype == DIALOGUETYPE_YESNOCANCEL) buttonsbarsizer.setSize(1, 4);
+	if(dialoguetype == DIALOGUETYPE_OKCANCEL || dialoguetype == DIALOGUETYPE_YESNO) buttonsbarsizer.setSize(1, 3);
 
 	if(dialoguetype == DIALOGUETYPE_OK){
-		float bbbutp = ((float)defbuttonsbarbuttonw + 10) / (float)defbuttonsbar.width;
+		float bbbutp = ((float)buttonsbarbuttonw + 10) / (float)buttonsbar.width;
 		float bbempp = 1 - bbbutp;
 		float bbcolproportions[2] = {bbempp, bbbutp};
-		defbuttonsbarsizer.setColumnProportions(bbcolproportions);
+		buttonsbarsizer.setColumnProportions(bbcolproportions);
 		// OK BUTTON
-		defbuttonsbarsizer.setControl(0, 1, &defbuttonsbarokbutton);
-		defbuttonsbarokbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarokbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2 - 5;
-		defbuttonsbarokbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 1, &buttonsbarokbutton);
+		buttonsbarokbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarokbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2 - 5;
+		buttonsbarokbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 	}
 
 	if(dialoguetype == DIALOGUETYPE_YESNOCANCEL){
-		float bbbutp = ((float)defbuttonsbarbuttonw + 10) / (float)defbuttonsbar.width;
+		float bbbutp = ((float)buttonsbarbuttonw + 10) / (float)buttonsbar.width;
 		float bbempp = 1 - bbbutp * 3;
 		float bbcolproportions[4] = {bbempp, bbbutp, bbbutp, bbbutp};
-		defbuttonsbarsizer.setColumnProportions(bbcolproportions);
+		buttonsbarsizer.setColumnProportions(bbcolproportions);
 		// YES BUTTON
-		defbuttonsbarsizer.setControl(0, 1, &defbuttonsbaryesbutton);
-		defbuttonsbaryesbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbaryesbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2 + 5;
-		defbuttonsbaryesbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 1, &buttonsbaryesbutton);
+		buttonsbaryesbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbaryesbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2 + 5;
+		buttonsbaryesbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 		// NO BUTTON
-		defbuttonsbarsizer.setControl(0, 2, &defbuttonsbarnobutton);
-		defbuttonsbarnobutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarnobutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2;
-		defbuttonsbarnobutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 2, &buttonsbarnobutton);
+		buttonsbarnobutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarnobutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2;
+		buttonsbarnobutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 		// CANCEL BUTTON
-		defbuttonsbarsizer.setControl(0, 3, &defbuttonsbarcancelbutton);
-		defbuttonsbarcancelbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarcancelbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2 - 5;
-		defbuttonsbarcancelbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 3, &buttonsbarcancelbutton);
+		buttonsbarcancelbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarcancelbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2 - 5;
+		buttonsbarcancelbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 	}
 
 	if(dialoguetype == DIALOGUETYPE_OKCANCEL){
-		float bbbutp = ((float)defbuttonsbarbuttonw + 10) / (float)defbuttonsbar.width;
+		float bbbutp = ((float)buttonsbarbuttonw + 10) / (float)buttonsbar.width;
 		float bbempp = 1 - bbbutp * 2;
 		float bbcolproportions[4] = {bbempp, bbbutp, bbbutp, bbbutp};
-		defbuttonsbarsizer.setColumnProportions(bbcolproportions);
+		buttonsbarsizer.setColumnProportions(bbcolproportions);
 		// OK BUTTON
-		defbuttonsbarsizer.setControl(0, 1, &defbuttonsbarokbutton);
-		defbuttonsbarokbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarokbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2;
-		defbuttonsbarokbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 1, &buttonsbarokbutton);
+		buttonsbarokbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarokbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2;
+		buttonsbarokbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 		// CANCEL BUTTON
-		defbuttonsbarsizer.setControl(0, 2, &defbuttonsbarcancelbutton);
-		defbuttonsbarcancelbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarcancelbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2 - 5;
-		defbuttonsbarcancelbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 2, &buttonsbarcancelbutton);
+		buttonsbarcancelbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarcancelbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2 - 5;
+		buttonsbarcancelbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 	}
 
 	if(dialoguetype == DIALOGUETYPE_YESNO){
-		float bbbutp = ((float)defbuttonsbarbuttonw + 10) / (float)defbuttonsbar.width;
+		float bbbutp = ((float)buttonsbarbuttonw + 10) / (float)buttonsbar.width;
 		float bbempp = 1 - bbbutp * 2;
 		float bbcolproportions[4] = {bbempp, bbbutp, bbbutp, bbbutp};
-		defbuttonsbarsizer.setColumnProportions(bbcolproportions);
+		buttonsbarsizer.setColumnProportions(bbcolproportions);
 		// YES BUTTON
-		defbuttonsbarsizer.setControl(0, 1, &defbuttonsbaryesbutton);
-		defbuttonsbaryesbutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbaryesbutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2;
-		defbuttonsbaryesbutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 1, &buttonsbaryesbutton);
+		buttonsbaryesbutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbaryesbutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2;
+		buttonsbaryesbutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 		// NO BUTTON
-		defbuttonsbarsizer.setControl(0, 2, &defbuttonsbarnobutton);
-		defbuttonsbarnobutton.setSize(defbuttonsbarbuttonw, defbuttonsbarbuttonh);
-		defbuttonsbarnobutton.left += (defbuttonsbar.width * bbbutp - defbuttonsbarbuttonw) / 2 - 5;
-		defbuttonsbarnobutton.top += (defbuttonsbar.height - defbuttonsbarbuttonh) / 2;
+		buttonsbarsizer.setControl(0, 2, &buttonsbarnobutton);
+		buttonsbarnobutton.setSize(buttonsbarbuttonw, buttonsbarbuttonh);
+		buttonsbarnobutton.left += (buttonsbar.width * bbbutp - buttonsbarbuttonw) / 2 - 5;
+		buttonsbarnobutton.top += (buttonsbar.height - buttonsbarbuttonh) / 2;
 	}
 }
 
 void gGUIDialogue::resetMessageBar() {
-	setMessageBar(&defmessagebar);
+	messagebar.width = width;
+	messagebar.height = height;
+	messagebar.set(root, this, this, 0, 0, left, top + defmessagebartopspace, messagebar.width - defmessagebarrightspace, messagebar.height - defmessagebartopspace * 2);
+
 	float mbspace = 0.05f;
 	float mbdtp = 0.07f;
 	float mbsmgp = 0.9f;
@@ -289,20 +302,16 @@ void gGUIDialogue::resetMessageBar() {
 
 	defmessagebarsizer.setControl(0, 3, &defmessagetext);
 	if(isiconenabled) defmessagebarsizer.setControl(0, 1, &defdialogueicon);
-	defdialogueicon.setSize(deftitlebar.height, deftitlebar.height);
-	defdialogueicon.top += (defmessagebar.height - defdialogueicon.width) / 2;
+	defdialogueicon.setSize(titlebar.height, titlebar.height);
+	defdialogueicon.top += (messagebar.height - defdialogueicon.width) / 2;
 }
 
-void gGUIDialogue::setMinimizeButton(gGUIImageButton* minimizeButton) {
-	this->minimizebutton = minimizeButton;
+void gGUIDialogue::setTitle(std::string title) {
+	titlebartext.setText(title);
 }
 
-void gGUIDialogue::setMaximizeButton(gGUIImageButton* maximizeButton) {
-	this->maximizebutton = maximizeButton;
-}
-
-void gGUIDialogue::setExitButton(gGUIImageButton* exitButton) {
-	this->exitbutton = exitButton;
+void gGUIDialogue::setMessageBarSizer(gGUISizer* sizer) {
+	messagebar.setSizer(sizer);
 }
 
 void gGUIDialogue::setButtonEvent(int buttonEvent) {
@@ -332,49 +341,66 @@ void gGUIDialogue::transformDialogue(int left, int top, int width, int height) {
 	guisizer->left = this->left; guisizer->top = this->top; guisizer->width = this->width; guisizer->height = this->height;
 	guisizer->right = guisizer->left + guisizer->width; guisizer->bottom = guisizer->top + guisizer->height;
 
-	titlebar->left = left; titlebar->top = top - deftitlebarh; titlebar->width = width; titlebar->height = deftitlebarh;
-	titlebar->right = titlebar->left + titlebar->width; titlebar->bottom = titlebar->top + titlebar->bottom;
+	titlebar.left = left; titlebar.top = top - titlebarh; titlebar.width = width; titlebar.height = titlebarh;
+	titlebar.right = titlebar.left + titlebar.width; titlebar.bottom = titlebar.top + titlebar.bottom;
 
-	buttonsbar->left = left; buttonsbar->top = top + height; buttonsbar->width = width; buttonsbar->height = defbuttonsbarh;
-	buttonsbar->right = buttonsbar->left + buttonsbar->width; buttonsbar->bottom = buttonsbar->top + buttonsbar->height;
+	buttonsbar.left = left; buttonsbar.top = top + height; buttonsbar.width = width; buttonsbar.height = buttonsbarh;
+	buttonsbar.right = buttonsbar.left + buttonsbar.width; buttonsbar.bottom = buttonsbar.top + buttonsbar.height;
 	resetTitleBar();
 	resetButtonsBar();
 	resetMessageBar();
 }
 
 int gGUIDialogue::getCursor(int x, int y) {
-	if (!ismaximized && isresizeenabled) {
-		if ((x > left - 5 && x < left + 5) && (y > titlebar->top && y < buttonsbar->bottom)) return CURSOR_HRESIZE;
-		if ((x > right - 5 && x < right + 5) && (y > titlebar->top && y < buttonsbar->bottom)) return CURSOR_HRESIZE;
-		if ((y > titlebar->top - 5 && y < titlebar->top + 5) && (x > left && x < right)) return CURSOR_VRESIZE;
-		if ((y > buttonsbar->bottom - 5 && y < buttonsbar->bottom + 5) && (x > left && x < right)) return CURSOR_VRESIZE;
+	if(!ismaximized && isresizeenabled) {
+		if((x > left - 5 && x < left + 5) && (y > titlebar.top && y < buttonsbar.bottom)) return CURSOR_HRESIZE;
+		if((x > right - 5 && x < right + 5) && (y > titlebar.top && y < buttonsbar.bottom)) return CURSOR_HRESIZE;
+		if((y > titlebar.top - 5 && y < titlebar.top + 5) && (x > left && x < right)) return CURSOR_VRESIZE;
+		if((y > buttonsbar.bottom - 5 && y < buttonsbar.bottom + 5) && (x > left && x < right)) return CURSOR_VRESIZE;
 	}
 	return CURSOR_ARROW;
 }
 
+void gGUIDialogue::keyPressed(int key) {
+	gGUIForm::keyPressed(key);
+	messagebar.keyPressed(key);
+}
+
+void gGUIDialogue::keyReleased(int key) {
+	gGUIForm::keyReleased(key);
+	messagebar.keyReleased(key);
+}
+
+void gGUIDialogue::charPressed(unsigned int codepoint) {
+	gGUIForm::charPressed(codepoint);
+	messagebar.charPressed(codepoint);
+}
+
 void gGUIDialogue::mouseMoved(int x, int y) {
-	if(titlebar) titlebar->mouseMoved(x, y);
-	if(guisizer) {
-		if(x >= guisizer->left && x < guisizer->right && y >= guisizer->top && y < guisizer->bottom) {
-			guisizer->iscursoron = true;
-			guisizer->mouseMoved(x, y);
-		}
-	}
-	if(buttonsbar) buttonsbar->mouseMoved(x, y);
+	titlebar.mouseMoved(x, y);
+//	if(guisizer) {
+//		if(x >= guisizer->left && x < guisizer->right && y >= guisizer->top && y < guisizer->bottom) {
+//			guisizer->iscursoron = true;
+//			guisizer->mouseMoved(x, y);
+//		}
+//	}
+	buttonsbar.mouseMoved(x, y);
+	messagebar.mouseMoved(x, y);
 }
 
 void gGUIDialogue::mousePressed(int x, int y, int button) {
-	if (titlebar) titlebar->mousePressed(x, y, button);
-	if (guisizer) guisizer->mousePressed(x, y, button);
-	if (buttonsbar) buttonsbar->mousePressed(x, y, button);
+	titlebar.mousePressed(x, y, button);
+//	if(guisizer) guisizer->mousePressed(x, y, button);
+	buttonsbar.mousePressed(x, y, button);
+	messagebar.mousePressed(x, y, button);
 
-	if (minimizebutton->isPressed()) buttontrigger = EVENT_MINIMIZE;
-	if (!ismaximized && maximizebutton->isPressed()) buttontrigger = EVENT_MAXIMIZE;
-	if (ismaximized && maximizebutton->isPressed()) buttontrigger = EVENT_RESTORE;
-	if (exitbutton->isPressed()) buttontrigger = EVENT_EXIT;
+	if(minimizebutton.isPressed()) buttontrigger = EVENT_MINIMIZE;
+	if(!ismaximized && maximizebutton.isPressed()) buttontrigger = EVENT_MAXIMIZE;
+	if(ismaximized && maximizebutton.isPressed()) buttontrigger = EVENT_RESTORE;
+	if(exitbutton.isPressed()) buttontrigger = EVENT_EXIT;
 
-	if (!ismaximized && isdragenabled && x > titlebar->left + 5 && x < titlebar->left + titlebar->width - 5 && y > titlebar->top + 5 && y < titlebar->top + titlebar->height) {
-		if ((minimizebutton || maximizebutton || exitbutton) && (minimizebutton->isPressed() || maximizebutton->isPressed() || exitbutton->isPressed())) {
+	if(!ismaximized && isdragenabled && x > titlebar.left + 5 && x < titlebar.left + titlebar.width - 5 && y > titlebar.top + 5 && y < titlebar.top + titlebar.height) {
+		if(minimizebutton.isPressed() || maximizebutton.isPressed() || exitbutton.isPressed()) {
 			isdragged = false;
 		}
 		else {
@@ -383,11 +409,11 @@ void gGUIDialogue::mousePressed(int x, int y, int button) {
 		}
 	}
 
-	if (!ismaximized && isresizeenabled) {
-		if ((x > left - 5 && x < left + 5) && (y > titlebar->top && y < buttonsbar->bottom)) {resizeposition = RESIZE_LEFT; sizeposx = x;}
-		if ((x > right - 5 && x < right + 5) && (y > titlebar->top && y < buttonsbar->bottom)) {resizeposition = RESIZE_RIGHT; sizeposx = x;}
-		if ((y > titlebar->top - 5 && y < titlebar->top + 5) && (x > left && x < right)) {resizeposition = RESIZE_TOP; sizeposy = y;}
-		if ((y > buttonsbar->bottom - 5 && y < buttonsbar->bottom + 5) && (x > left && x < right)) {resizeposition = RESIZE_BOTTOM; sizeposy = y;}
+	if(!ismaximized && isresizeenabled) {
+		if((x > left - 5 && x < left + 5) && (y > titlebar.top && y < buttonsbar.bottom)) {resizeposition = RESIZE_LEFT; sizeposx = x;}
+		if((x > right - 5 && x < right + 5) && (y > titlebar.top && y < buttonsbar.bottom)) {resizeposition = RESIZE_RIGHT; sizeposx = x;}
+		if((y > titlebar.top - 5 && y < titlebar.top + 5) && (x > left && x < right)) {resizeposition = RESIZE_TOP; sizeposy = y;}
+		if((y > buttonsbar.bottom - 5 && y < buttonsbar.bottom + 5) && (x > left && x < right)) {resizeposition = RESIZE_BOTTOM; sizeposy = y;}
 	}
 }
 
@@ -395,16 +421,16 @@ void gGUIDialogue::mouseDragged(int x, int y, int button) {
 	int dx = x - dragposx; int dy = y - dragposy; int sx = x - sizeposx; int sy = y - sizeposy;
 	int tleft = left; int twidth = width; int theight = height; int ttop = top;
 
-	if ((resizeposition == RESIZE_RIGHT && sx < 0 && width < 400) || (resizeposition == RESIZE_LEFT && sx > 0 && width < 400)) sx = 0;
-	if ((resizeposition == RESIZE_BOTTOM && sy < 0 && height < 100) || (resizeposition == RESIZE_TOP && sy > 0 && height < 100)) sy = 0;
+	if((resizeposition == RESIZE_RIGHT && sx < 0 && width < 400) || (resizeposition == RESIZE_LEFT && sx > 0 && width < 400)) sx = 0;
+	if((resizeposition == RESIZE_BOTTOM && sy < 0 && height < 100) || (resizeposition == RESIZE_TOP && sy > 0 && height < 100)) sy = 0;
 
-	if (isdragged && x >= titlebar->left - titlebar->width && x < titlebar->left + titlebar->width && y >= titlebar->top - titlebar->height - guisizer->height && y < titlebar->top + titlebar->height + guisizer->height) {
+	if(isdragged && x >= titlebar.left - titlebar.width && x < titlebar.left + titlebar.width && y >= titlebar.top - titlebar.height - guisizer->height && y < titlebar.top + titlebar.height + guisizer->height) {
 		tleft += dx; ttop += dy;
 
-		for (int i = 0; i < titlebar->getSizer()->getLineNum(); i++) {
-			for (int j = 0; j < titlebar->getSizer()->getColumnNum(); j++) {
-				gGUIControl* guicontrol = titlebar->getSizer()->getControl(i, j);
-				if (guicontrol != nullptr) {
+		for (int i = 0; i < titlebar.getSizer()->getLineNum(); i++) {
+			for (int j = 0; j < titlebar.getSizer()->getColumnNum(); j++) {
+				gGUIControl* guicontrol = titlebar.getSizer()->getControl(i, j);
+				if(guicontrol != nullptr) {
 					guicontrol->left += dx;
 					guicontrol->top += dy;
 					guicontrol->right = guicontrol->left + guicontrol->width;
@@ -416,7 +442,7 @@ void gGUIDialogue::mouseDragged(int x, int y, int button) {
 		for (int i = 0; i < guisizer->getLineNum(); i++) {
 			for (int j = 0; j < guisizer->getColumnNum(); j++) {
 				gGUIControl* guicontrol = guisizer->getControl(i, j);
-				if (guicontrol != nullptr) {
+				if(guicontrol != nullptr) {
 					guicontrol->left += dx;
 					guicontrol->top += dy;
 					guicontrol->right = guicontrol->left + guicontrol->width;
@@ -425,10 +451,10 @@ void gGUIDialogue::mouseDragged(int x, int y, int button) {
 			}
 		}
 
-		for (int i = 0; i < buttonsbar->getSizer()->getLineNum(); i++) {
-			for (int j = 0; j < buttonsbar->getSizer()->getColumnNum(); j++) {
-				gGUIControl* guicontrol = buttonsbar->getSizer()->getControl(i, j);
-				if (guicontrol != nullptr) {
+		for (int i = 0; i < buttonsbar.getSizer()->getLineNum(); i++) {
+			for (int j = 0; j < buttonsbar.getSizer()->getColumnNum(); j++) {
+				gGUIControl* guicontrol = buttonsbar.getSizer()->getControl(i, j);
+				if(guicontrol != nullptr) {
 					guicontrol->left += dx;
 					guicontrol->top += dy;
 					guicontrol->right = guicontrol->left + guicontrol->width;
@@ -438,10 +464,10 @@ void gGUIDialogue::mouseDragged(int x, int y, int button) {
 		}
 	}
 
-	if (resizeposition == RESIZE_LEFT) {twidth -= sx; tleft += sx;}
-	if (resizeposition == RESIZE_RIGHT) {twidth += sx;}
-	if (resizeposition == RESIZE_TOP) {theight -= sy; ttop += sy;}
-	if (resizeposition == RESIZE_BOTTOM) {theight += sy;}
+	if(resizeposition == RESIZE_LEFT) {twidth -= sx; tleft += sx;}
+	if(resizeposition == RESIZE_RIGHT) {twidth += sx;}
+	if(resizeposition == RESIZE_TOP) {theight -= sy; ttop += sy;}
+	if(resizeposition == RESIZE_BOTTOM) {theight += sy;}
 
 	transformDialogue(tleft, ttop, twidth, theight);
 
@@ -449,17 +475,18 @@ void gGUIDialogue::mouseDragged(int x, int y, int button) {
 }
 
 void gGUIDialogue::mouseReleased(int x, int y, int button) {
-	if (titlebar) titlebar->mouseReleased(x, y, button);
-	if (guisizer) guisizer->mouseReleased(x, y, button);
-	if (buttonsbar) buttonsbar->mouseReleased(x, y, button);
-	if (isdragged) isdragged = false;
+	titlebar.mouseReleased(x, y, button);
+	if(guisizer) guisizer->mouseReleased(x, y, button);
+	buttonsbar.mouseReleased(x, y, button);
+	messagebar.mouseReleased(x, y, button);
+	if(isdragged) isdragged = false;
 
-	if (resizeposition != RESIZE_NONE) {resizeposition = RESIZE_NONE; resetTitleBar(); resetButtonsBar(); resetMessageBar();}
+	if(resizeposition != RESIZE_NONE) {resizeposition = RESIZE_NONE; resetTitleBar(); resetButtonsBar(); resetMessageBar();}
 
-	if (buttontrigger == EVENT_MINIMIZE) {buttonevent = EVENT_MINIMIZE; buttontrigger = EVENT_NONE;}
-	if (buttontrigger == EVENT_MAXIMIZE) {buttonevent = EVENT_MAXIMIZE; buttontrigger = EVENT_NONE;}
-	if (buttontrigger == EVENT_RESTORE) {buttonevent = EVENT_RESTORE; buttontrigger = EVENT_NONE;}
-	if (buttontrigger == EVENT_EXIT) {buttonevent = EVENT_EXIT; buttontrigger = EVENT_NONE;}
+	if(buttontrigger == EVENT_MINIMIZE) {buttonevent = EVENT_MINIMIZE; buttontrigger = EVENT_NONE;}
+	if(buttontrigger == EVENT_MAXIMIZE) {buttonevent = EVENT_MAXIMIZE; buttontrigger = EVENT_NONE;}
+	if(buttontrigger == EVENT_RESTORE) {buttonevent = EVENT_RESTORE; buttontrigger = EVENT_NONE;}
+	if(buttontrigger == EVENT_EXIT) {buttonevent = EVENT_EXIT; buttontrigger = EVENT_NONE;}
 }
 
 void gGUIDialogue::setMessageText(std::string messageText) {
@@ -482,4 +509,45 @@ void gGUIDialogue::setIconType(int iconId) {
 
 void gGUIDialogue::setDialogueType(int typeId) {
 	dialoguetype = typeId;
+	resetButtonsBar();
 }
+
+void gGUIDialogue::setTitleType(int typeId) {
+	titletype = typeId;
+	resetTitleBar();
+}
+
+
+int gGUIDialogue::getOKButtonId() {
+	return buttonsbarokbutton.getId();
+}
+
+int gGUIDialogue::getCancelButtonId() {
+	return buttonsbarcancelbutton.getId();
+}
+
+int gGUIDialogue::getYesButtonId() {
+	return buttonsbaryesbutton.getId();
+}
+
+int gGUIDialogue::getNoButtonId() {
+	return buttonsbarnobutton.getId();
+}
+
+gGUIButton* gGUIDialogue::getOKButton() {
+	return &buttonsbarokbutton;
+}
+
+gGUIButton* gGUIDialogue::getCancelButton() {
+	return &buttonsbarcancelbutton;
+}
+
+gGUIButton* gGUIDialogue::getYesButton() {
+	return &buttonsbaryesbutton;
+}
+
+gGUIButton* gGUIDialogue::getNoButton() {
+	return &buttonsbarnobutton;
+}
+
+

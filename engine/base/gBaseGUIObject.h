@@ -100,6 +100,12 @@ public:
 	static void setDisabledButtonFontColor(gColor* color);
 	static gColor* getDisabledButtonFontColor();
 
+	static void setToolBarButtonColor(gColor* toolbarbuttoncolor);
+	static gColor* getToolBarButtonColor();
+
+	static void setToolBarBottomLineColor(gColor* toolbarbottomlinecolor);
+	static gColor* getToolBarBottomLineColor();
+
 	virtual int getCursor(int x, int y);
 	virtual void keyPressed(int key);
 	virtual void keyReleased(int key);
@@ -121,7 +127,7 @@ public:
 
 	int id, type;
 	int left, top, right, bottom, width, height;
-	int titlex, titley, titledy;
+	int titlex, titley, titleheight;
 	bool isfocused, iscursoron;
 	bool issizer, iscontainer;
 	static int focusid, previousfocusid;
@@ -143,6 +149,8 @@ protected:
 	static gColor* buttonfontcolor;
 	static gColor* pressedbuttonfontcolor;
 	static gColor* disabledbuttonfontcolor;
+	static gColor* toolbarbuttoncolor1;
+	static gColor* toolbarbottomlinecolor1;
 
 	std::string title;
 

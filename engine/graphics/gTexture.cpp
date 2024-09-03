@@ -7,24 +7,14 @@
 
 #include "gTexture.h"
 #include <iostream>
-#if defined(WIN32) || defined(LINUX)
-#include <GL/glew.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
-#endif
-#if TARGET_OS_OSX
-#include <OpenGL/gl.h>
-#include <GL/glew.h>
-#include <OpenGL/glu.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
-#endif
-#include "gPlane.h"
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #endif
 #include "stb/stb_image.h"
+#include "stb/stb_image_write.h"
+
+#include "gPlane.h"
+#include "gShader.h"
 
 const int gTexture::TEXTURETYPE_DIFFUSE = 0;
 const int gTexture::TEXTURETYPE_SPECULAR = 1;
@@ -124,7 +114,12 @@ gTexture::gTexture(int w, int h, int format, bool isFbo) {
 	ismaskloaded = false;
 	isloaded = false;
 	masktexture = nullptr;
-	componentnum = 0;
+	if (format == GL_RED) componentnum = 1;
+	else if (format == GL_GREEN) componentnum = 1;
+	else if (format == GL_BLUE) componentnum = 1;
+	else if (format == GL_RG) componentnum = 2;
+	else if (format == GL_RGB) componentnum = 3;
+	else if (format == GL_RGBA) componentnum = 4;
     data = nullptr;
 	datahdr = nullptr;
 	glGenTextures(1, &id);
@@ -161,10 +156,10 @@ unsigned int gTexture::load(const std::string& fullPath) {
 
 	if (ishdr) {
 		stbi_set_flip_vertically_on_load(true);
-		datahdr = stbi_loadf(fullpath.c_str(), &width, &height, &componentnum, 0);
+		float* datahdr = stbi_loadf(fullpath.c_str(), &width, &height, &componentnum, 0);
 		setDataHDR(datahdr, false, true);
 	} else {
-		data = stbi_load(fullpath.c_str(), &width, &height, &componentnum, 0);
+		unsigned char* data = stbi_load(fullpath.c_str(), &width, &height, &componentnum, 0);
 		setData(data, false, true);
 	}
 
@@ -205,7 +200,9 @@ unsigned int gTexture::loadData(unsigned char* textureData, int width, int heigh
 }
 
 void gTexture::setData(unsigned char* textureData, bool isMutable, bool isStbImage, bool clean) {
-	if(clean) cleanupData();
+	if(clean) {
+		cleanupData();
+	}
 
 	ismutable = isMutable;
 	isstbimage = isStbImage;
@@ -253,7 +250,9 @@ void gTexture::setData(unsigned char* textureData, bool isMutable, bool isStbIma
 }
 
 void gTexture::setDataHDR(float* textureData, bool isMutable, bool isStbImage, bool clean) {
-	if(clean)cleanupData();
+	if(clean) {
+		cleanupData();
+	}
 
 	ismutable = isMutable;
 	isstbimage = isStbImage;
@@ -614,5 +613,42 @@ std::string gTexture::getFileName(const std::string& fname) {
 	return (std::string::npos == pos)
 				   ? ""
 				   : fname.substr(pos + 1, fname.size());
+}
+
+void gTexture::save(std::string fullpath) {
+	unsigned char* pixels = new unsigned char[width * height * componentnum];
+
+	GLuint fbo;
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, id, 0);
+
+	glReadPixels(0, 0, width, height, format, GL_UNSIGNED_BYTE, pixels);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDeleteFramebuffers(1, &fbo);
+
+	// flip back vertically if fbo or hdr
+	if (isfbo || ishdr) {
+		unsigned char* temppix = new unsigned char[width * componentnum];
+		int linenum = height / 2;
+		for(int i = 0; i < linenum; i++) {
+			int afirst = i * width * componentnum;
+			int alast = afirst + width * componentnum;
+			int bfirst = (height - i - 1) * width * componentnum;
+			int blast = bfirst + width * componentnum;
+			std::copy(pixels + afirst, pixels + alast, temppix);
+			std::copy(pixels + bfirst, pixels + blast, pixels + afirst);
+			std::copy(temppix, temppix + (width * componentnum), pixels + bfirst);
+		}
+		delete[] temppix;
+	}
+
+	stbi_write_png(fullpath.c_str(), width, height, componentnum, pixels, width * componentnum * sizeof(unsigned char));
+	delete[] pixels;
+}
+
+void gTexture::saveTexture(std::string fileName) {
+	save(gGetTexturesDir() + fileName);
 }
 

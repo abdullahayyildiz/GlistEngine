@@ -52,6 +52,7 @@
 #include "gCircle.h"
 #include <array>
 #include <deque>
+#include <unordered_map>
 
 
 class gGUILineGraph: public gGUIGraph  {
@@ -60,15 +61,15 @@ public:
 	gGUILineGraph();
 	virtual ~gGUILineGraph();
 
-	void set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h);
+	void set(gBaseApp* root, gBaseGUIObject* topParentGUIObject, gBaseGUIObject* parentGUIObject, int parentSlotLineNo, int parentSlotColumnNo, int x, int y, int w, int h) override;
 
-	void setMaxX(int maxX);
-	void setMinX(int minX);
-	void setMaxY(int maxY);
-	void setMinY(int minY);
+	void setMaxX(int maxX) override;
+	void setMinX(int minX) override;
+	void setMaxY(int maxY) override;
+	void setMinY(int minY) override;
 
-	void setLabelCountX(int labelCount);
-	void setLabelCountY(int labelCount);
+	void setLabelCountX(int labelCount) override;
+	void setLabelCountY(int labelCount) override;
 
 	void enablePoints(bool arePointsEnabled);
 	void setLineColor(int lineIndex, gColor lineColor);
@@ -81,14 +82,31 @@ public:
 	void setPointValues(int lineIndex, float oldX, float oldY, float newX, float newY);
 	void removeFirstPointsFromLine(int lineIndex, int pointNumLimit);
 
+	int getPointNum(int lineIndex);
+
+	float getPointXValue(int lineIndex, int pointIndex);
+	float getPointYValue(int lineIndex, int pointIndex);
+
+	void clear() override;
+
 private:
-	void drawGraph();
+	static const int linecolornum = 6;
+	void drawGraph() override;
 	void updatePoints();
 
 	std::deque<std::deque<std::array<float, 4>>> graphlines;
-	gColor linecolors[5];
+	std::vector<gLine> cachedlines;
+	std::vector<gCircle> cachedcircles;
+	std::unordered_map<uint64_t, gLine*> linesmap;
+	std::unordered_map<uint64_t, gCircle*> circlesmap;
+	gColor linecolors[linecolornum];
 
-	bool arepointsenabled;
+	bool pointsenabled;
+	bool needsupdate = false;
+
+	uint64_t hash(uint32_t a, uint32_t b) {
+		return ((uint64_t)a << 32) | b;
+	}
 };
 
 

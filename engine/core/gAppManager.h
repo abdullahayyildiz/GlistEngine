@@ -45,6 +45,7 @@
 #include "gWindowEvents.h"
 #include "gFont.h"
 #include "gObject.h"
+class gGUIAppThread;
 
 #include <chrono>
 #include <iostream>
@@ -170,11 +171,25 @@ public:
      */
 	void submitToMainThread(std::function<void()> fn);
 
-
+	/**
+	 * Returns app's name
+	 *
+	 * @return App name
+	 */
 	std::string getAppName();
 
+	/**
+	 * Getter for the Canvas Manager
+	 *
+	 * @return Pointer of the Canvas Manager
+	 */
 	gCanvasManager* getCanvasManager();
 
+	/**
+	 * Getter for the GUI Manager
+	 *
+	 * @return Pointer of the GUI Manager
+	 */
 	gGUIManager* getGUIManager();
 
 	/**
@@ -185,11 +200,24 @@ public:
 	 */
 	int getLoopMode();
 
+	/**
+	 * Returns if the current window is focused by operating system
+	 *
+	 * @return Is current window focused
+	 */
 	bool isWindowFocused();
 
-	EventHandlerFn getEventHandler() { return eventhandler; }
+	/**
+	 * Publishes the event to canvas, app and gui manager. Returns if true the event was handled by any of them.
+	 *
+	 * @param event Event to publish
+	 * @return isHandled
+	 */
+	bool callEvent(gEvent& event);
 
 	/**
+	 * Returns a pointer of the current canvas
+	 *
 	 * @return Current canvas.
 	 */
 	gBaseCanvas* getCurrentCanvas();
@@ -219,7 +247,17 @@ public:
 	 */
 	gGUIFrame* getCurrentGUIFrame();
 
+	/**
+	 * Function to save a string into the system clipboard. Clipboard string
+	 * should be arranged by the app developer.
+	 *
+	 * @param String to save
+	 */
 	void setClipboardString(const std::string& clipboard);
+
+	/**
+	 * Reads and returns the string saved to clipboard.
+	 */
     std::string getClipboardString();
 
 	/**
@@ -266,8 +304,15 @@ public:
 	 */
 	void setCurrentGUIFrame(gGUIFrame* guiFrame);
 
+	gGUIAppThread* getGUIAppThread();
+
     void setCursor(int cursorId);
     void setCursorMode(int cursorMode);
+
+    void setWindowIcon(std::string pngFullpath);
+    void setWindowIcon(unsigned char* imageData, int w, int h);
+
+    void setWindowTitle(const std::string& windowTitle);
 
     bool isJoystickConnected(int joystickId);
     int getJoystickAxesCount(int joystickId);
@@ -375,7 +420,12 @@ private:
     void updateTime();
     void executeQueue();
 
+	EventHandlerFn getEventHandler() { return eventhandler; }
+
     static void preciseSleep(double seconds);
+
+    gGUIAppThread* guiappthread;
+    bool isguiapp;
 };
 
 #endif //GAPPMANAGER_H

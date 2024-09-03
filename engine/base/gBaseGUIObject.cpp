@@ -24,6 +24,9 @@ gColor* gBaseGUIObject::disabledbuttoncolor;
 gColor* gBaseGUIObject::buttonfontcolor;
 gColor* gBaseGUIObject::pressedbuttonfontcolor;
 gColor* gBaseGUIObject::disabledbuttonfontcolor;
+gColor* gBaseGUIObject::toolbarbuttoncolor1;
+gColor* gBaseGUIObject::toolbarbottomlinecolor1;
+
 int gBaseGUIObject::focusid;
 int gBaseGUIObject::previousfocusid;
 gGUIActionManager gBaseGUIObject::actionmanager;
@@ -77,11 +80,11 @@ void gBaseGUIObject::setTitleOn(bool isTitleOn) {
 	if(istitleon) {
 		titlex = left + font->getStringWidth("i");
 		titley = top + font->getStringHeight("AE");
-		titledy = font->getSize() * 1.8f;
+		titleheight = font->getSize() * 1.8f;
 	} else {
 		titlex = 0;
 		titley = 0;
-		titledy = 0;
+		titleheight = 0;
 	}
 }
 
@@ -301,4 +304,18 @@ void gBaseGUIObject::setCursorOn(bool isOn) {
 
 }
 
+void gBaseGUIObject::setToolBarButtonColor(gColor* toolbarbuttoncolor) {
+		toolbarbuttoncolor1 = toolbarbuttoncolor;
+}
 
+gColor* gBaseGUIObject::getToolBarButtonColor() {
+	return toolbarbuttoncolor1;
+}
+
+void gBaseGUIObject::setToolBarBottomLineColor(gColor* toolbarbottomlinecolor) {
+	toolbarbottomlinecolor1 = toolbarbottomlinecolor;
+}
+
+gColor* gBaseGUIObject::getToolBarBottomLineColor() {
+	return toolbarbottomlinecolor1;
+}

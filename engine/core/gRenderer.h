@@ -11,11 +11,17 @@
 #define CORE_GRENDERER_H_
 
 #include "gObject.h"
+
 #if defined(WIN32) || defined(LINUX)
 //#include <GL/glext.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#endif
+#if TARGET_OS_OSX
+#include <GL/glew.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #endif
 #ifdef ANDROID
 #include <GLES3/gl3.h>
@@ -28,17 +34,19 @@
 #	include <OpenGLES/gltypes.h>
 #endif
 #define GLM_ENABLE_EXPERIMENTAL
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/gtx/quaternion.hpp>
 
-#include <deque>
-#include "gShader.h"
 #include "gColor.h"
 #include "gConstants.h"
-class gLight;
-class gImage;
-//#include "gLight.h"
+#include <deque>
+
+#ifndef GLIST_MAX_LIGHTS
+// amount of maximum lights, this is used to allocate memory for the light uniform buffer
+#define GLIST_MAX_LIGHTS 8
+#endif
 
 // You can define ENGINE_OPENGL_CHECKS to enable OpenGL checks
 // without debugging.
@@ -85,6 +93,13 @@ void gDrawTubeOblique(float x, float y, float z, int outerradius,int innerradiou
 void gDrawTubeTrapezodial(float x, float y, float z, int topouterradius,int topinnerradious, int buttomouterradious, int buttominnerradious, int h, glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f), int segmentnum = 32, bool isFilled = true);
 void gDrawTubeObliqueTrapezodial(float x, float y, float z, int topouterradius,int topinnerradious, int buttomouterradious, int buttominnerradious, int h, glm::vec2 shiftdistance, glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f), int segmentnum = 32, bool isFilled = true);
 
+template<typename T>
+class gUbo;
+class gLight;
+class gImage;
+class gShader;
+class gCamera;
+class gGrid;
 
 class gRenderer: public gObject {
 public:
@@ -107,6 +122,16 @@ public:
 	int getUnitHeight();
 	static int getScreenScaling();
 
+	static void setCurrentResolution(int resolution);
+	static void setCurrentResolution(int screenWidth, int screenHeight);
+	static void setUnitResolution(int resolution);
+	static void setUnitResolution(int screenWidth, int screenHeight);
+	static int getResolution(int screenWidth, int screenHeight);
+	int getCurrentResolution();
+	int getUnitResolution();
+	static int scaleX(int x);
+	static int scaleY(int y);
+
 	//grid
 	void drawGrid();
 	void drawGridYZ();
@@ -115,11 +140,9 @@ public:
 	void enableGrid();
 	void disableGrid();
 	void setGridEnableAxis(bool xy, bool yz, bool xz);
-	void setGridEnableXY(bool xy), setGridEnableYZ(bool yz), setGridEnableXZ(bool xz);
-	void setGridMaxLength(float length);
-	float getGridMaxLength();
-	void setGridLineInterval(float intervalvalue);
-	float getGridLineInterval();
+	void setGridEnableXY(bool xy);
+	void setGridEnableYZ(bool yz);
+	void setGridEnableXZ(bool xz);
 	void setGridColorofAxisXZ(int r, int g, int b, int a);
 	void setGridColorofAxisYZ(int r, int g, int b, int a);
 	void setGridColorofAxisXY(int r, int g, int b, int a);
@@ -132,19 +155,17 @@ public:
 	void setGridColorofAxisWireFrameXZ(gColor* color);
 	void setGridColorofAxisWireFrameYZ(gColor* color);
 	void setGridColorofAxisWireFrameXY(gColor* color);
-	bool isGridEnabled(), isGridXYEnabled(), isGridYZEnabled(), isGridXZEnabled();
+	bool isGridEnabled();
+	bool isGridXYEnabled();
+	bool isGridYZEnabled();
+	bool isGridXZEnabled();
+	void setGridMaxLength(float length);
+	float getGridMaxLength();
+	void setGridLineInterval(float intervalvalue);
+	float getGridLineInterval();
 
-
-
-	static void setCurrentResolution(int resolution);
-	static void setCurrentResolution(int screenWidth, int screenHeight);
-	static void setUnitResolution(int resolution);
-	static void setUnitResolution(int screenWidth, int screenHeight);
-	static int getResolution(int screenWidth, int screenHeight);
-	int getCurrentResolution();
-	int getUnitResolution();
-	static int scaleX(int x);
-	static int scaleY(int y);
+	gGrid* getGrid() const;
+	void setGrid(gGrid* newgrid);
 
 	void setColor(int r, int g, int b, int a = 255);
 	void setColor(float r, float g, float b, float a = 1.0f);
@@ -160,12 +181,13 @@ public:
 	void disableLighting();
 	bool isLightingEnabled();
 	void setLightingColor(int r, int g, int b, int a = 255);
-	void setLightingColor(gColor* color);
+	void setLightingColor(gColor* color) { setLightingColor(color->r, color->g, color->b, color->a); }
 	gColor* getLightingColor();
 	void setLightingPosition(glm::vec3 lightingPosition);
 	glm::vec3 getLightingPosition();
+
 	void setGlobalAmbientColor(int r, int g, int b, int a = 255);
-	void setGlobalAmbientColor(gColor color);
+	void setGlobalAmbientColor(gColor color) { setGlobalAmbientColor(color.r, color.g, color.b, color.a); }
 	gColor* getGlobalAmbientColor();
 
 	void enableFog();
@@ -188,11 +210,14 @@ public:
 	float getFogLinearStart() const;
 	float getFogLinearEnd() const;
 
+	// add and remove functions are called by gLight class automatically,
+	// so you don't need to
 	void addSceneLight(gLight* light);
+	void removeSceneLight(gLight* light);
 	gLight* getSceneLight(int lightNo);
 	int getSceneLightNum();
-	void removeSceneLight(gLight* light);
 	void removeAllSceneLights();
+	void updateLights();
 
 	void enableDepthTest();
 	void enableDepthTest(int depthTestType);
@@ -226,15 +251,18 @@ public:
 	gShader* getPrefilterShader();
 	gShader* getBrdfShader();
 	gShader* getFboShader();
+	gShader* getGridShader();
 
 	void setProjectionMatrix(glm::mat4 projectionMatrix);
 	void setProjectionMatrix2d(glm::mat4 projectionMatrix2d);
 	void setViewMatrix(glm::mat4 viewMatrix);
 	void setCameraPosition(glm::vec3 cameraPosition);
+	void setCamera(gCamera* camera);
 	const glm::mat4& getProjectionMatrix() const;
 	const glm::mat4& getProjectionMatrix2d() const;
 	const glm::mat4& getViewMatrix() const;
 	const glm::vec3& getCameraPosition() const;
+	const gCamera* getCamera() const;
 	void backupMatrices();
 	void restoreMatrices();
 
@@ -243,21 +271,46 @@ public:
 	 */
 	gImage takeScreenshot();
 
+	/*
+	 * Takes Screen Shot of the part of current Rendered Screen and returns it as an gImage class
+	 */
+	gImage takeScreenshot(int x, int y, int width, int height);
+
 private:
+	friend class gRenderObject; // this is where renderer->init() is called from
+
+	// this is an object that is sent to the gpu
+	struct alignas(16) gSceneLightData {
+		alignas(4) int type;
+		alignas(16) glm::vec3 position;
+		alignas(16) glm::vec3 direction;
+		alignas(16) glm::vec4 ambient;
+		alignas(16) glm::vec4 diffuse;
+		alignas(16) glm::vec4 specular;
+
+		alignas(4) float constant;
+		alignas(4) float linear;
+		alignas(4) float quadratic;
+
+		alignas(4) float spotcutoffangle;
+		alignas(4) float spotoutercutoffangle;
+	};
+
+	struct alignas(16) gSceneLights {
+		alignas(4) int lightnum = 0;
+		// bitwise enabled lights, 1 means enabled, 0 means disabled, 32-bit integer
+		// supports only 32 max lights, make sure to change this if max lights is changed to be something above 32
+		alignas(4) int enabledlights;
+		alignas(16) glm::vec4 globalambientcolor;
+		gSceneLightData lights[GLIST_MAX_LIGHTS];
+	};
+
 	static int width, height;
 	static int unitwidth, unitheight;
 	static int screenscaling;
 	static int currentresolution, unitresolution;
-	//grid
-	int gridmaxvalue;
-	float gridlineinterval;
-	bool isgridenable, isgridxzenable, isgridxyenable, isgridyzenable;
-	gColor gridxzcolor, gridxzmargincolor, gridxycolor,gridxymargincolor, gridyzcolor, gridyzmargincolor;//default
-	//grid - END
-	gColor* rendercolor;
 
-	gColor* lightingcolor;
-	bool islightingenabled;
+	gColor* rendercolor;
 
 	bool isfogenabled;
 	int fogno;
@@ -268,11 +321,13 @@ private:
 	float foglinearstart;
 	float foglinearend;
 
-	glm::vec3 lightingposition;
-	gColor* globalambientcolor;
-	int li;
 	std::deque<gLight*> scenelights;
-
+	gUbo<gSceneLights>* lightsubo;
+	bool islightingenabled;
+	glm::vec3 lightingposition;
+	gColor lightingcolor;
+	gColor globalambientcolor;
+	bool isglobalambientcolorchanged;
 
 	bool isdepthtestenabled;
 	int depthtesttype;
@@ -294,6 +349,7 @@ private:
 	gShader* prefiltershader;
 	gShader* brdfshader;
 	gShader* fboshader;
+	gShader* gridshader;
 
 	glm::mat4 projectionmatrix;
 	glm::mat4 projectionmatrixold;
@@ -301,29 +357,39 @@ private:
 	glm::mat4 viewmatrix;
 	glm::mat4 viewmatrixold;
 	glm::vec3 cameraposition;
+	gCamera* camera;
 
-	const std::string getShaderSrcColorVertex();
-	const std::string getShaderSrcColorFragment();
-	const std::string getShaderSrcTextureVertex();
-	const std::string getShaderSrcTextureFragment();
-	const std::string getShaderSrcImageVertex();
-	const std::string getShaderSrcImageFragment();
-	const std::string getShaderSrcFontVertex();
-	const std::string getShaderSrcFontFragment();
-	const std::string getShaderSrcSkyboxVertex();
-	const std::string getShaderSrcSkyboxFragment();
-	const std::string getShaderSrcShadowmapVertex();
-	const std::string getShaderSrcShadowmapFragment();
-	const std::string getShaderSrcPbrVertex();
-	const std::string getShaderSrcPbrFragment();
-	const std::string getShaderSrcCubemapVertex();
-	const std::string getShaderSrcEquirectangularFragment();
-	const std::string getShaderSrcIrradianceFragment();
-	const std::string getShaderSrcPrefilterFragment();
-	const std::string getShaderSrcBrdfVertex();
-	const std::string getShaderSrcBrdfFragment();
-	const std::string getShaderSrcFboVertex();
-	const std::string getShaderSrcFboFragment();
+	gGrid* grid;
+	gGrid* originalgrid;
+	bool isdevelopergrid;
+
+	void init();
+
+
+	static const std::string& getShaderSrcGridVertex();
+	static const std::string& getShaderSrcGridFragment();
+	static const std::string& getShaderSrcColorVertex();
+	static const std::string& getShaderSrcColorFragment();
+	static const std::string& getShaderSrcTextureVertex();
+	static const std::string& getShaderSrcTextureFragment();
+	static const std::string& getShaderSrcImageVertex();
+	static const std::string& getShaderSrcImageFragment();
+	static const std::string& getShaderSrcFontVertex();
+	static const std::string& getShaderSrcFontFragment();
+	static const std::string& getShaderSrcSkyboxVertex();
+	static const std::string& getShaderSrcSkyboxFragment();
+	static const std::string& getShaderSrcShadowmapVertex();
+	static const std::string& getShaderSrcShadowmapFragment();
+	static const std::string& getShaderSrcPbrVertex();
+	static const std::string& getShaderSrcPbrFragment();
+	static const std::string& getShaderSrcCubemapVertex();
+	static const std::string& getShaderSrcEquirectangularFragment();
+	static const std::string& getShaderSrcIrradianceFragment();
+	static const std::string& getShaderSrcPrefilterFragment();
+	static const std::string& getShaderSrcBrdfVertex();
+	static const std::string& getShaderSrcBrdfFragment();
+	static const std::string& getShaderSrcFboVertex();
+	static const std::string& getShaderSrcFboFragment();
 };
 
 #endif /* CORE_GRENDERER_H_ */

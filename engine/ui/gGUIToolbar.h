@@ -17,9 +17,10 @@
 #include "gGUISlider.h"
 #include "gGUISwitchButton.h"
 #include "gGUIText.h"
+#include "gGUIBitmap.h"
 #include "gGUIDivider.h"
 #include "gGUIFrame.h"
-#include <vector>
+#include <deque>
 #include <typeinfo>
 
 
@@ -44,8 +45,12 @@ public:
 	void addSlider(gGUISlider* slider);
 	void addSwitchButton(gGUISwitchButton* switchButton);
 	void addText(gGUIText* text);
+	void addImage(gGUIBitmap* image);
 	void addDivider(gGUIDivider* divider, float margin);
 	void addSpace();
+	void setToolbarForegroundColor(gColor* color);
+	void setToolbarBottomLineColor(gColor* color);
+
 
 	void draw();
 
@@ -53,8 +58,9 @@ private:
 	int toolbartype;
 	int spaceLocation;
 	bool isSpaceAdded;
-	std::vector<gGUIControl*> controlObjects;
-	std::vector<float> sizerPrs;
+	std::deque<gGUIControl*> controlObjects;
+	std::deque<float> sizerPrs;
+	gColor* tbforegroundcolor, tbbottomlinecolor;
 
 	void resizeSizer();
 };

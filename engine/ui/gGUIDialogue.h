@@ -34,13 +34,19 @@ class gGUIDialogue: public gGUIForm {
 public:
 	static const int EVENT_NONE = 0, EVENT_MINIMIZE = 1, EVENT_MAXIMIZE = 2, EVENT_RESTORE = 3, EVENT_EXIT = 4;
 	static const int RESIZE_NONE = 0, RESIZE_LEFT = 1, RESIZE_RIGHT = 2, RESIZE_TOP = 3, RESIZE_BOTTOM = 4;
-	enum{
+	enum {
 		DIALOGUETYPE_OK,
 		DIALOGUETYPE_YESNOCANCEL,
 		DIALOGUETYPE_OKCANCEL,
 		DIALOGUETYPE_YESNO
 	};
-	enum{
+	enum {
+		TITLETYPE_EXITMINMAX,
+		TITLETYPE_EXITMAX,
+		TITLETYPE_EXITMIN,
+		TITLETYPE_EXIT
+	};
+	enum {
 		ICONTYPE_NONE,
 		ICONTYPE_ERROR,
 		ICONTYPE_INFO,
@@ -50,29 +56,24 @@ public:
 	gGUIDialogue();
 	virtual ~gGUIDialogue();
 
+	void setSizer(gGUISizer* guiSizer);
+
 	void update();
 	void draw();
 
-	void show();
-	void hide();
+	bool show();
+	bool hide();
 	bool isShown();
 
-	void initDefTitleBar();
-	void initDefButtonsBar();
-	void initDefMessageBar();
-	void setTitleBar(gGUIContainer* titleBar);
 	gGUIContainer* getTitleBar();
-	void setButtonsBar(gGUIContainer* buttonsBar);
 	gGUIContainer* getButtonsBar();
-	void setMessageBar(gGUIContainer* messageBar);
 	gGUIContainer* getMessageBar();
 	void resetTitleBar();
 	void resetButtonsBar();
 	void resetMessageBar();
 
-	void setMinimizeButton(gGUIImageButton* minimizeButton);
-	void setMaximizeButton(gGUIImageButton* maximizeButton);
-	void setExitButton(gGUIImageButton* exitButton);
+	void setTitle(std::string title);
+	void setMessageBarSizer(gGUISizer* sizer);
 
 	void setButtonEvent(int buttonEvent);
 	int getButtonEvent();
@@ -87,42 +88,55 @@ public:
 	std::string getMessageText();
 	void setIconType(int iconId);
 	void setDialogueType(int typeId);
+	void setTitleType(int typeId);
 
 	int getCursor(int x, int y);
+	void keyPressed(int key);
+	void keyReleased(int key);
+	void charPressed(unsigned int codepoint);
 	void mouseMoved(int x, int y);
 	void mousePressed(int x, int y, int button);
 	void mouseDragged(int x, int y, int button);
 	void mouseReleased(int x, int y, int button);
+
+	int getOKButtonId();
+	int getCancelButtonId();
+	int getYesButtonId();
+	int getNoButtonId();
+
+	gGUIButton* getOKButton();
+	gGUIButton* getCancelButton();
+	gGUIButton* getYesButton();
+	gGUIButton* getNoButton();
+
 private:
 	bool isdialogueshown;
 
-	gGUIContainer* titlebar;
-	gGUIContainer* buttonsbar;
-	gGUIContainer* messagebar;
+	gGUIContainer titlebar;
+	gGUISizer titlebarsizer;
+	gGUIContainer buttonsbar;
+	gGUISizer buttonsbarsizer;
+	gGUIContainer messagebar;
 
-	gGUIImageButton* minimizebutton;
-	gGUIImageButton* maximizebutton;
-	gGUIImageButton* exitbutton;
+	gGUIImageButton minimizebutton;
+	gGUIImageButton maximizebutton;
+	gGUIImageButton exitbutton;
 
-	static const int deftitlebarh = 35, deftitlebarbitmapw = 24, deftitlebarbuttonw = 48;
-	static const int defbuttonsbarh = 45, defbuttonsbarbuttonw = 100, defbuttonsbarbuttonh = 27;
+	static const int titlebarh = 35, titlebarbitmapw = 24, titlebarbuttonw = 48;
+	static const int buttonsbarh = 45, buttonsbarbuttonw = 100, buttonsbarbuttonh = 27;
 
-	gGUIContainer deftitlebar;
-	gGUISizer deftitlebarsizer;
-	gGUIBitmap deftitlebarbitmap;
-	gGUIText deftitlebartext;
-	gGUIImageButton deftitlebarminimizebutton;
-	gGUIImageButton deftitlebarmaximizebutton;
-	gGUIImageButton deftitlebarexitbutton;
+	void initTitleBar();
+	void initButtonsBar();
+	void initDefMessageBar();
 
-	gGUIContainer defbuttonsbar;
-	gGUISizer defbuttonsbarsizer;
-	gGUIButton defbuttonsbarokbutton;
-	gGUIButton defbuttonsbaryesbutton;
-	gGUIButton defbuttonsbarnobutton;
-	gGUIButton defbuttonsbarcancelbutton;
+	gGUIBitmap titlebarbitmap;
+	gGUIText titlebartext;
 
-	gGUIContainer defmessagebar;
+	gGUIButton buttonsbarokbutton;
+	gGUIButton buttonsbaryesbutton;
+	gGUIButton buttonsbarnobutton;
+	gGUIButton buttonsbarcancelbutton;
+
 	gGUISizer defmessagebarsizer;
 	gGUIText defmessagetext;
 	gGUIImageButton defdialogueicon;
@@ -132,6 +146,7 @@ private:
 	int defmessagebartopspace, defmessagebarrightspace;
 
 	int dialoguetype;
+	int titletype;
 
 	bool isdragenabled, isresizeenabled;
 	bool ismaximized, isdragged;

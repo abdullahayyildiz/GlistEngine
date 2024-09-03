@@ -6,6 +6,7 @@
  */
 
 #include "gUtils.h"
+#include "gImage.h"
 #include <sys/time.h>
 #include <limits>
 #include <chrono>
@@ -341,15 +342,48 @@ void gStringReplace(std::string& input, const std::string& searchStr, const std:
 
 std::vector<std::string> gSplitString(const std::string& textToSplit, const std::string& delimiter) {
 	std::vector<std::string> tokens;
+	int tl = textToSplit.length();
+	int dl = delimiter.length();
 	size_t prev = 0, pos = 0;
 	do {
 		pos = textToSplit.find(delimiter, prev);
-		if (pos == std::string::npos) pos = textToSplit.length();
+		if (pos == std::string::npos) pos = tl;
 		std::string token = textToSplit.substr(prev, pos - prev);
 		if (!token.empty()) tokens.push_back(token);
-		prev = pos + delimiter.length();
-	} while (pos < textToSplit.length() && prev < textToSplit.length());
+		else tokens.push_back("");
+		prev = pos + dl;
+		if(prev == tl) tokens.push_back("");
+	} while (pos < tl && prev < tl);
 	return tokens;
+}
+
+std::string gReplaceAll(const std::string& source, const std::string& from, const std::string& to) {
+    std::string newstring;
+    newstring.reserve(source.length());
+    int fl = from.length();
+
+    std::string::size_type lastpos = 0;
+    std::string::size_type findpos;
+
+    while(std::string::npos != (findpos = source.find(from, lastpos))) {
+        newstring.append(source, lastpos, findpos - lastpos);
+        newstring += to;
+        lastpos = findpos + fl;
+    }
+    newstring += source.substr(lastpos);
+    return newstring;
+}
+
+bool gIsValidFilename(std::string fileName) {
+	std::string invalidchars = "<>:\"/|?*\\";
+	bool valid = true;
+	for(int i = 0; i < invalidchars.length(); i++) {
+		if(fileName.find(invalidchars[i]) != std::string::npos) {
+			valid = false;
+			break;
+		}
+	}
+	return valid;
 }
 
 std::string gToLower(const std::string& src, const std::string & locale) {
@@ -639,90 +673,146 @@ bool gIsLoggingEnabled() {
 }
 
 std::string gShowOpenFileDialog(
-		std::string dialogTitle,
-		std::string defaultPathAndFile,
+		const std::string& dialogTitle,
+		const std::string& defaultPathAndFile,
 	    int filterNum,
-		std::string* filterPatterns,
-		std::string filterDescription,
+		const std::string* filterPatterns,
+		const std::string& filterDescription,
 	    bool isMultipleSelectionAllowed) {
-	std::string resstr = "";
-	const char* carray[filterNum];
-	for(int i = 0; i < filterNum; i++) carray[i] = filterPatterns[i].c_str();
+	const char* filter[filterNum];
+	for(int i = 0; i < filterNum; i++) {
+		filter[i] = filterPatterns[i].c_str();
+	}
+	return gShowOpenFileDialog(dialogTitle, defaultPathAndFile, filterNum, filter, filterDescription, isMultipleSelectionAllowed);
+}
+
+std::string gShowOpenFileDialog(
+		const std::string& dialogTitle,
+		const std::string& defaultPathAndFile,
+		int filterNum,
+		const char** filterPatterns,
+		const std::string& filterDescription,
+		bool isMultipleSelectionAllowed) {
 	const char* res = tinyfd_openFileDialog(
 			dialogTitle.c_str(),
 			defaultPathAndFile.c_str(),
 			filterNum,
-			carray,
+			filterPatterns,
 			filterDescription.c_str(),
 			isMultipleSelectionAllowed);
-	if(res) resstr = std::string(res);
-	return resstr;
+	if(res) {
+		return {res};
+	}
+	return "";
+}
+
+std::string gShowOpenFileDialog(
+	const std::string& dialogTitle,
+	const std::string& defaultPathAndFile,
+	std::initializer_list<const char*> filterPatterns,
+	const std::string& filterDescription,
+	bool isMultipleSelectionAllowed) {
+	const char* filters[filterPatterns.size()];
+	size_t i = 0;
+	for(auto&& it = filterPatterns.begin(); it < filterPatterns.end(); it++, i++) {
+		filters[i] = *it;
+	}
+	return gShowOpenFileDialog(dialogTitle, defaultPathAndFile, filterPatterns.size(), filters, filterDescription, isMultipleSelectionAllowed);
+}
+
+
+std::string gShowSaveFileDialog(
+	const std::string& dialogTitle,
+	const std::string& defaultPathAndFile,
+    int filterNum,
+	const std::string* filterPatterns,
+	const std::string& filterDescription) {
+	const char* filters[filterNum];
+	for(int i = 0; i < filterNum; i++) {
+		filters[i] = filterPatterns[i].c_str();
+	}
+	return gShowSaveFileDialog(dialogTitle, defaultPathAndFile, filterNum, filters, filterDescription);
 }
 
 std::string gShowSaveFileDialog(
-	std::string dialogTitle,
-	std::string defaultPathAndFile,
-    int filterNum,
-	std::string* filterPatterns,
-	std::string filterDescription) {
-	std::string resstr = "";
-	const char* carray[filterNum];
-	for(int i = 0; i < filterNum; i++) carray[i] = filterPatterns[i].c_str();
+	const std::string& dialogTitle,
+	const std::string& defaultPathAndFile,
+	std::initializer_list<const char*> filterPatterns,
+	const std::string& filterDescription) {
+	const char* filters[filterPatterns.size()];
+	size_t i = 0;
+	for(auto&& it = filterPatterns.begin(); it < filterPatterns.end(); it++, i++) {
+		filters[i] = *it;
+	}
+	return gShowSaveFileDialog(dialogTitle, defaultPathAndFile, filterPatterns.size(), filters, filterDescription);
+}
+
+
+std::string gShowSaveFileDialog(
+	const std::string& dialogTitle,
+	const std::string& defaultPathAndFile,
+	int filterNum,
+	const char** filterPatterns,
+	const std::string& filterDescription) {
 	const char* res = tinyfd_saveFileDialog(
 			dialogTitle.c_str(),
 			defaultPathAndFile.c_str(),
 			filterNum,
-			carray,
+			filterPatterns,
 			filterDescription.c_str());
-	if(res) resstr = std::string(res);
-	return resstr;
+	if(res) {
+		return {res};
+	}
+	return "";
 }
 
 std::string gShowSelectFolderDialog(
-	std::string dialogTitle,
-	std::string defaultPath) {
-	std::string resstr = "";
+	const std::string& dialogTitle,
+	const std::string& defaultPath) {
 	const char* res = tinyfd_selectFolderDialog(
 			dialogTitle.c_str(),
 			defaultPath.c_str());
-	if(res) resstr = std::string(res);
-	return resstr;
+	if(res) {
+		return {res};
+	}
+	return "";
 }
 
 int gShowMessageBox(
-		std::string aTitle , /* NULL or "" */
-		std::string aMessage , /* NULL or ""  may contain \n and \t */
-		std::string aDialogType , /* "ok" "okcancel" "yesno" "yesnocancel" */
-		std::string aIconType , /* "info" "warning" "error" "question" */
-		int aDefaultButton ) {
+		const std::string& title,
+		const std::string& message,
+		const std::string& dialogueType,
+		const std::string& iconType,
+		int defaultButton) {
 	return tinyfd_messageBox(
-			aTitle.c_str(),
-			aMessage.c_str(),
-			aDialogType.c_str(),
-			aIconType.c_str(),
-			aDefaultButton);
+			title.c_str(),
+			message.c_str(),
+			dialogueType.c_str(),
+			iconType.c_str(),
+			defaultButton);
 }
 
 std::string gShowInputBox(
-		std::string aTitle , /* NULL or "" */
-		std::string aMessage , /* NULL or ""  may contain \n and \t */
-		std::string aDefaultInput) /* "" , if NULL it's a passwordBox */ {
-	std::string resstr = "";
+		const std::string& title,
+		const std::string& message,
+		const std::string& defaultInput) {
 	const char* res = tinyfd_inputBox(
-			aTitle.c_str(),
-			aMessage.c_str(),
-			aDefaultInput.c_str());
-	if(res) resstr = std::string(res);
-	return resstr;
+			title.c_str(),
+			message.c_str(),
+			defaultInput.c_str());
+	if(res) {
+		return {res};
+	}
+	return "";
 }
 
 gColor gShowColorChooser(
-	std::string aTitle , /* "" */
-	std::string aDefaultHexRGB , /* NULL or "#FF0000" */
-	unsigned char const aDefaultRGB[3]) /* { 0 , 255 , 255 } */ {
+	const std::string& title,
+	const std::string& defaultHex,
+	unsigned char const defaultRGB[3]) {
 	gColor selectedcolor(0, 0, 0, 255);
 	unsigned char result[3];
-	char const * res = tinyfd_colorChooser(aTitle.c_str(), aDefaultHexRGB.c_str(), aDefaultRGB, result);
+	char const* res = tinyfd_colorChooser(title.c_str(), defaultHex.c_str(), defaultRGB, result);
 	if(res) {
 		selectedcolor.set(result[0] / 255, result[1] / 255, result[2] / 255);
 	}
@@ -733,6 +823,31 @@ bool gCheckCollision(int xLeft1, int yUp1, int xRight1, int yBottom1,
 		int xLeft2, int yUp2, int xRight2, int yBottom2) {
 	return xLeft1 < xRight2 && xRight1 > xLeft2 && yBottom1 > yUp2 && yUp1 < yBottom2;
 }
+
+bool gCheckPixelPerfectCollision(gImage* image1, int x1, int y1, gImage* image2, int x2, int y2) {
+	unsigned char* data1 = image1->getImageData();
+	unsigned char* data2 = image2->getImageData();
+	int componentnum1 = image1->getComponentNum();
+	int componentnum2 = image2->getComponentNum();
+	if(gCheckCollision(x1, y1, (x1 + image1->getWidth()), (y1 + image1->getHeight()), x2, y2, (x2 + image2->getWidth()), (y2 + image2->getHeight()))) {
+		int overlapleft = std::max(x1, x2);
+		int overlaptop = std::max(y1, y2);
+		int overlapright = std::min(x1 + image1->getWidth(), x2 + image2->getWidth());
+		int overlapbottom = std::min(y1 + image1->getHeight(), y2 + image2->getHeight());
+
+		for(int i = overlapleft; i < overlapright; i++) {
+			for(int j = overlaptop; j < overlapbottom; j++) {
+				int pixel1 = ((j - y1) * image1->getWidth() + (i - x1)) * componentnum1;
+				int pixel2 = ((j - y2) * image2->getWidth() + (i - x2)) * componentnum2;
+				if(data1[pixel1 + 3] != 0 && data2[pixel2 + 3] != 0) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 
 gUtils::gUtils() {
 

@@ -267,6 +267,8 @@ public:
 	 */
 	void refreshList();
 
+	void clear();
+
 	void drawContent();
 
 	void mousePressed(int x, int y, int button);
@@ -338,6 +340,21 @@ public:
 	 */
 	std::string getTitle(Element* element);
 
+
+	/*
+	 * Returns given struct object's title.
+	 *
+	 * @param No of the element to get it's title
+	 */
+	std::string getTitle(int elementNo);
+
+
+	/*
+	 * Returns selected struct object's title.
+	 *
+	 */
+	std::string getSelectedTitle();
+
 	/*
 	 * Returns given struct object's node number. Node number is a static integer
 	 * value. It contains the total number of the elements.
@@ -403,6 +420,7 @@ public:
 	 */
 	Element* getRootElement();
 
+	void setSelectedLineNumber(int lineNo);
 	int getSelectedLineNumber();
 
 	int nodenum;
@@ -412,11 +430,10 @@ public:
 
 private:
 	int listboxh;
-	int lineh, linenum;
-	int minlinenum, minboxh;
-	int maxlinenum;
+	int lineh;
+	int visibilelinenum, minboxh;
 	int fldy, flno;
-	float datady;
+	float textoffset;
 	int firstlineno;
 	int selectedno;
 	float arrowsize, spacesize;
@@ -424,6 +441,9 @@ private:
 	Element topelement;
 	gColor chosencolor, iconcolor;
 	int iconx, iconw, iconh;
+
+private:
+	void updateTotalHeight();
 };
 
 #endif /* UI_GGUITREELIST_H_ */

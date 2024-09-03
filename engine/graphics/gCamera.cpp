@@ -42,15 +42,31 @@ gCamera::~gCamera() {
 
 void gCamera::begin() {
 	renderer->backupMatrices();
-	renderer->setProjectionMatrix(glm::perspective(glm::radians(fov), (float)renderer->getWidth() / (float)renderer->getHeight(), nearclip, farclip));
+	float aspect = (float)renderer->getWidth() / (float)renderer->getHeight();
+	float fovY = glm::radians(fov);
+	renderer->setProjectionMatrix(glm::perspective(fovY, aspect, nearclip, farclip));
 	renderer->setViewMatrix(glm::inverse(locallookmatrix));
 	renderer->setCameraPosition(position);
-	renderer->drawGrid();
-//	viewmatrix = GetViewMatrix();
+	renderer->setCamera(this);
+	if(renderer->isGridEnabled()) renderer->drawGrid();
+
+	const float halfVSide = farclip * tanf(fovY * 0.5f);
+	const float halfHSide = halfVSide * aspect;
+	glm::vec3 front = -locallookmatrix[2];
+	glm::vec3 right = -locallookmatrix[0];
+	glm::vec3 up = -locallookmatrix[1];
+	const glm::vec3 frontMultFar = farclip * front;
+	frustum.nearFace = Plane{ position + nearclip * front, front };
+	frustum.farFace = Plane{ position + frontMultFar, -front };
+	frustum.rightFace = Plane{ position, glm::cross(frontMultFar - right * halfHSide, up) };
+	frustum.leftFace = Plane{ position, glm::cross(up, frontMultFar + right * halfHSide) };
+	frustum.topFace = Plane{ position, glm::cross(right, frontMultFar - up * halfVSide) };
+	frustum.bottomFace = Plane{ position, glm::cross(frontMultFar + up * halfVSide, right) };
 }
 
 void gCamera::end() {
 	renderer->restoreMatrices();
+	renderer->setCamera(nullptr);
 }
 
 void gCamera::setFov(float f) {
@@ -58,11 +74,11 @@ void gCamera::setFov(float f) {
 }
 
 void gCamera::setNearClip(float nearClip) {
-	nearclip = nearClip;
+	nearclip = glm::clamp(nearClip, 0.001f, 0.999f);
 }
 
 void gCamera::setFarClip(float farClip) {
-	farclip = farClip;
+	farclip = glm::clamp(farClip, 1.0f, 10000.0f);
 }
 
 void gCamera::move(float dx, float dy, float dz) {
@@ -274,6 +290,15 @@ void gCamera::processLookMatrix() {
 	locallookmatrix = glm::scale(locallookmatrix, lookscalevec);
 }
 
+bool gCamera::isInFrustum(const gBoundingBox& aabb) const {
+	// Check the AABB against all six frustum planes
+	return (frustum.leftFace.checkAABB(aabb) &&
+			frustum.rightFace.checkAABB(aabb) &&
+			frustum.topFace.checkAABB(aabb) &&
+			frustum.bottomFace.checkAABB(aabb) &&
+			frustum.nearFace.checkAABB(aabb) &&
+			frustum.farFace.checkAABB(aabb));
+}
 
 void gCamera::rotateGizmos(const glm::quat& o) {
 	gizmos->rotate(o);

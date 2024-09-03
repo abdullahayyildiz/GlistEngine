@@ -9,13 +9,16 @@
 
 
 gGUIText::gGUIText() {
-    textalignment = TEXTALIGNMENT_LEFT;
     text = "";
     fontsize = font->getSize();
     linespacingfactor = 0.4f;
 	lineh = fontsize + (fontsize * linespacingfactor);
     width = 0;
     linenum = 0;
+    isdisabled = false;
+	setTextAlignment(TEXTALIGNMENT_LEFT);
+	setTextVerticalAlignment(TEXTVERTICALALIGNMENT_CENTER);
+	textcolor = fontcolor;
 }
 
 gGUIText::~gGUIText() {
@@ -38,20 +41,50 @@ std::string gGUIText::getText() {
 	return text;
 }
 
-void gGUIText::setTextAlignment(int textAligment) {
-    textalignment = textAligment;
+void gGUIText::setTextAlignment(int alignment) {
+    textalignment = alignment;
     resetAlignment();
 }
 
+void gGUIText::setTextVerticalAlignment(int alignment) {
+	textverticalalignment = alignment;
+	resetAlignment();
+}
+
+int gGUIText::getTextAlignment() {
+	return textalignment;
+}
+
+int gGUIText::getVerticalTextAlignment() {
+	return textverticalalignment;
+}
+
+void gGUIText::setTextColor(const gColor& color) {
+	textcolor = color;
+}
+
+gColor* gGUIText::getTextColor() {
+	return &textcolor;
+}
+
 void gGUIText::draw() {
-    gColor oldcolor = *renderer->getColor();
-    renderer->setColor(fontcolor);
-    for (int i = 0; i < linenum; i++) font->drawText(line[i], left + linefirstx[i], top + fontsize + (i * lineh));
-    renderer->setColor(&oldcolor);
+    gColor* oldcolor = renderer->getColor();
+    if(isdisabled) {
+		renderer->setColor(disabledbuttonfontcolor);
+	} else {
+		renderer->setColor(&textcolor);
+	}
+
+    for (int i = 0; i < linenum; i++) {
+		font->drawText(line[i], left + linefirstx[i], top + fontsize + (i * lineh) + verticaloffset);
+	}
+    renderer->setColor(oldcolor);
 }
 
 void gGUIText::resetText() {
-    if (width <= 0) return;
+    if (width <= 0) {
+		return;
+	}
     linenum = 0;
     line.clear();
     std::vector<std::string> lines;
@@ -66,7 +99,8 @@ void gGUIText::resetText() {
 
     // Process each line and apply alignment rules
     for (const std::string& singleline : lines) {
-        std::vector<std::string> splitlines = splitString(singleline, font, width);
+        std::vector<std::string> splitlines = gSplitString(singleline, "\n");
+//        std::vector<std::string> splitlines = splitString(singleline, font, width);
         for (const std::string& splitline : splitlines) {
             lineswithrules.push_back(splitline);
         }
@@ -118,17 +152,31 @@ void gGUIText::resetAlignment() {
     if (textalignment == TEXTALIGNMENT_RIGHT) {
         int margin = 5;
         for (int i = 0; i < linenum; i++) {
-            int linetextwidth = font->getStringWidth(line[i]);
+            //int linetextwidth = font->getStringWidth(line[i]);
             linefirstx[i] -= margin;
         }
     }
-    if (textalignment == TEXTALIGNMENT_JUSTIFY) {
-            int margin = 3;
-            for (int i = 0; i < linenum; i++) {
-                int linetextwidth = font->getStringWidth(line[i]);
-                linefirstx[i] -= margin;
-            }
-        }
+	if (textalignment == TEXTALIGNMENT_JUSTIFY) {
+		int margin = 3;
+		for (int i = 0; i < linenum; i++) {
+			//int linetextwidth = font->getStringWidth(line[i]);
+			linefirstx[i] -= margin;
+		}
+	}
+	if (textverticalalignment == TEXTVERTICALALIGNMENT_BOTTOM) {
+		int totalheight = 0;
+		for (int i = 0; i < linenum; i++) {
+			totalheight += font->getStringHeight(line[i]);
+		}
+		verticaloffset = height - totalheight - 2;
+	}
+	if (textverticalalignment == TEXTVERTICALALIGNMENT_CENTER) {
+		int totalheight = 0;
+		for (int i = 0; i < linenum; i++) {
+			totalheight += font->getStringHeight(line[i]);
+		}
+		verticaloffset = (height - totalheight) / 2 - 2;
+	}
 }
 
 std::vector<std::string> gGUIText::splitString(const std::string& textToSplit, gFont* font, int lineWidth) {
@@ -151,4 +199,8 @@ std::vector<std::string> gGUIText::splitString(const std::string& textToSplit, g
         tokens.push_back(line);
     }
     return tokens;
+}
+
+void gGUIText::setDisabled(bool isDisabled) {
+	isdisabled = isDisabled;
 }

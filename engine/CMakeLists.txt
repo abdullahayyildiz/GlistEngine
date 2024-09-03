@@ -10,6 +10,7 @@ endif()
 # Configure compiler and linker as you need
 set(GLIST_CXX_FLAGS_COMMON
     -stdlib=libc++
+    -d2ReducedOptimizeHugeFunctions
     -Wuninitialized
     -Wmultichar
     -ffunction-sections
@@ -19,10 +20,13 @@ set(GLIST_CXX_FLAGS_COMMON
     -fpermissive
     -fPIC
 )
-list(APPEND GLIST_CXX_FLAGS_DEBUG -DDEBUG -Og)
+list(APPEND GLIST_CXX_FLAGS_DEBUG -DDEBUG -O0 -g)
 list(APPEND GLIST_CXX_FLAGS_RELEASE -DEIGEN_NO_CUDA -DNDEBUG -O2)
 if(NOT APPLE)
 	set(GLIST_SHARED_LINKER_FLAGS "-v -pthread -Wl,--gc-sections")
+endif()
+if(WIN32)
+	set(GLIST_SHARED_LINKER_FLAGS "${GLIST_SHARED_LINKER_FLAGS} -mwindows")
 endif()
 
 ##################################################
@@ -48,7 +52,6 @@ set(CMAKE_USE_WIN32_THREADS_INIT 0)
 set(CMAKE_USE_PTHREADS_INIT 1)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 set(ENABLE_BOOST_WORKAROUND ON)
-
 
 if(NOT DEFINED ENGINE_DIR)
     set(ENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -80,8 +83,9 @@ if(NOT WIN32)
 endif(NOT WIN32)
 endif()
 
-#configure_file( ${ENGINE_DIR}/gConfig.h.in ${CMAKE_BINARY_DIR}/generated/gConfig.h )
+set(GENERATED_HEADERS_DIR "${CMAKE_BINARY_DIR}/generated")
 
+#configure_file( ${ENGINE_DIR}/gConfig.h.in ${CMAKE_BINARY_DIR}/generated/gConfig.h )
 
 ########## READ PLUGIN CMAKELISTS ##########
 if(NOT DEFINED PLUGINS)
@@ -119,6 +123,7 @@ set(SRC_FILES
 	${ENGINE_DIR}/graphics/particles/gFireParticles.cpp
 	${ENGINE_DIR}/base/gBaseParticles.cpp
 	${ENGINE_DIR}/types/gColor.cpp
+	${ENGINE_DIR}/core/gGUIAppThread.cpp
 	${ENGINE_DIR}/utils/gThread.cpp
 	${ENGINE_DIR}/utils/gUtils.cpp
 	${ENGINE_DIR}/utils/gFile.cpp
@@ -130,6 +135,7 @@ set(SRC_FILES
 	${ENGINE_DIR}/core/gRenderObject.cpp
 	${ENGINE_DIR}/core/gGUIActionManager.cpp
 	${ENGINE_DIR}/graphics/gTexture.cpp
+	${ENGINE_DIR}/graphics/gGrid.cpp
 	${ENGINE_DIR}/graphics/gImage.cpp
 	${ENGINE_DIR}/graphics/gSkybox.cpp
 	${ENGINE_DIR}/graphics/gNode.cpp
@@ -161,6 +167,7 @@ set(SRC_FILES
 	${ENGINE_DIR}/graphics/primitives/gTube.cpp
 	${ENGINE_DIR}/graphics/gVbo.cpp
 	${ENGINE_DIR}/graphics/gFbo.cpp
+	${ENGINE_DIR}/graphics/gUbo.cpp
 	${ENGINE_DIR}/graphics/gRay.cpp
 	${ENGINE_DIR}/graphics/gBoundingBox.cpp
 	${ENGINE_DIR}/graphics/gRect.cpp
@@ -189,6 +196,7 @@ set(SRC_FILES
 	${ENGINE_DIR}/ui/gGUIColumnChart.cpp
 	${ENGINE_DIR}/ui/gGUITextbox.cpp
 	${ENGINE_DIR}/ui/gGUIText.cpp
+	${ENGINE_DIR}/ui/gGUITooltipText.cpp
 	${ENGINE_DIR}/ui/gGUIDivider.cpp
 	${ENGINE_DIR}/ui/gGUIToolbarButton.cpp
 	${ENGINE_DIR}/ui/gGUIProgressBar.cpp
@@ -248,6 +256,12 @@ set(SRC_FILES
 	${ENGINE_DIR}/graphics/posteffects/kerneleffects/gEdgeDetection.cpp
 )
 
+if(WIN32)
+	list(APPEND SRC_FILES
+		${ENGINE_DIR}/utils/gWindows.cpp
+	)
+endif()
+
 if(NOT (ANDROID OR IOS))
 	list(APPEND SRC_FILES
 		${MINGW64_DIR}/lib/sqlite3.c
@@ -255,6 +269,36 @@ if(NOT (ANDROID OR IOS))
 		${ENGINE_DIR}/core/gGLFWWindow.cpp
 	)
 endif()
+
+set(SHADERS_DIR "${ENGINE_DIR}/graphics/shaders" CACHE STRING "Engine shaders directory")
+set(GENERATED_SHADERS_DIR "${GENERATED_HEADERS_DIR}/graphics/shaders" CACHE STRING "Generated shaders directory")
+file(MAKE_DIRECTORY ${GENERATED_SHADERS_DIR})
+file(GLOB_RECURSE SHADER_FILES "${SHADERS_DIR}/*.glsl")
+
+# If user or another plugin haven't defined a custom executable for the tool
+if(NOT DEFINED SHADERTOHEADER_EXEC_PATH)
+	add_executable(GlistShaderToHeader ${ENGINE_DIR}/tools/ShaderToHeader.cpp)
+	set(SHADERTOHEADER_EXEC_PATH $<TARGET_FILE:GlistShaderToHeader>)
+endif()
+
+# Add a dependency to ensure the header file is generated before other targets
+foreach(SHADER_FILE ${SHADER_FILES})
+	get_filename_component(SHADER_FILE_NAME ${SHADER_FILE} NAME_WE)
+	set(GENERATED_HEADER_FILE "${GENERATED_SHADERS_DIR}/${SHADER_FILE_NAME}.h")
+
+	add_custom_command(PRE_BUILD
+			OUTPUT ${GENERATED_HEADER_FILE}
+			COMMAND ${SHADERTOHEADER_EXEC_PATH} ${SHADER_FILE} ${GENERATED_HEADER_FILE}
+			DEPENDS ${SHADER_FILE}
+			COMMENT "Generating header file for ${SHADER_FILE} at ${GENERATED_HEADER_FILE}"
+	)
+	list(PREPEND SRC_FILES ${GENERATED_HEADER_FILE})
+endforeach()
+
+add_custom_target(
+		generate_shader_header
+		DEPENDS ${SHADER_FILES} ${GENERATED_HEADERS_DIR}
+)
 
 if(ANDROID OR IOS)
 	# We have androidMain function that is
@@ -307,7 +351,7 @@ set(ENGINE_INCLUDES
     ${ENGINE_DIR}/core
     ${ENGINE_DIR}/events
     ${PLUGIN_INCLUDES}
-#	${CMAKE_BINARY_DIR}/generated
+	${GENERATED_HEADERS_DIR}
 )
 
 list(APPEND INC_DIRS ${ENGINE_INCLUDES})
@@ -489,8 +533,8 @@ if(WIN32)
 		opengl32
 		glew32
 		dbghelp
-		msvcr100
-		psapi
+#		msvcr100
+#		psapi
 #		swscale-5
 #		swresample-3
 #		avutil-56

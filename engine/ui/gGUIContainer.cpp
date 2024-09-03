@@ -11,7 +11,7 @@
 gGUIContainer::gGUIContainer() {
 	iscontainer = true;
 	topbarh = 0;
-	sizerrescaling = true;
+	guisizer = nullptr;
 }
 
 gGUIContainer::~gGUIContainer() {
@@ -47,7 +47,6 @@ void gGUIContainer::setSizer(gGUISizer* guiSizer) {
 	guisizer->bottom = bottom;
 	guisizer->width = width;
 	guisizer->height = height - topbarh;
-	if(!sizerrescaling) guisizer->enableRescaling(false);
 }
 
 gGUISizer* gGUIContainer::getSizer() {
